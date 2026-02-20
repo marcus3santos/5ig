@@ -7,7 +7,8 @@
   :license  "Specify license here"
   :version "0.0.1"
   :serial t
-  :depends-on ()
+  :depends-on (:fiveam)
   :components ((:file "package")
+               (:file "runtime")
                (:file "sxm")
                (:file "5ig")))

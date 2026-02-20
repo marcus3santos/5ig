@@ -42,12 +42,35 @@
         p
         (concatenate 'string p "/"))))
 
+(defun generate-fiveam-test-with-cleanup (q-label fname body)
+  "Generates a namespaced FiveAM test and a cleanup runner for a specific question."
+  (let* ((test-name   (intern (format nil "~A-~A-TEST" q-label fname)))
+         (runner-name (intern (format nil "RUN-~A" test-name)))
+         ;; Filter and normalize checks from the body
+         (checks (remove-if-not (lambda (x) (eq (car x) :a-tag)) body)))
+    
+    `(progn
+       ;; 1. Define the namespaced FiveAM Test
+       (fiveam:test ,test-name
+         ,@(loop for check in checks
+                 for call = (second check)
+                 for expected = (third check)
+                 collect `(,(intern "IS-SAFE" :testing-runtime) (equal ,call ,expected) :timeout 2)))
+
+       ;; 2. Define the Runner with Unwind-Protect
+       (defun ,runner-name ()
+         (unwind-protect
+              ;; Run and return the list of result objects
+              (fiveam:run ',test-name)
+           ;; Cleanup: Forcefully remove the student's implementation
+           (when (fboundp ',fname)
+             (fmakunbound ',fname)
+             ;; Clear plists to prevent 'property injection' between students
+             (setf (symbol-plist ',fname) nil)))))))
+
 (defun gen-tc-code (q-label fname body)
-  (let ((suite-name (intern (format nil "TEST-~:@(~a~)" q-label)))
-        (fname-symb (if (stringp fname)
-                        (intern (format nil "~:@(~A~)" fname))
-                        fname))
-        (test-name (intern (format nil "TEST-~:@(~A~)" fname))))
+  (let ((suite-name (intern (format nil "TEST-~A" (symbol-name q-label))))
+        (test-name (intern (format nil "TEST-~A" fname))))
     `((declaim (notinline ,fname))
       (deftest ,test-name ()
         (check
@@ -237,7 +260,7 @@
                                             :keyword))
                            (latest-q-data (gethash q-label metadata))
                            (fun-name (first (second (assoc :asked-functions latest-q-data))))
-                           (tc-code (gen-tc-code q-label fun-name body))
+                           (tc-code (generate-fiveam-test-with-cleanup q-label fun-name body))
                            (gvn-data `(:given ,tc-code)))
                       (setf (gethash q-label metadata)
                             (cons gvn-data latest-q-data))
@@ -255,7 +278,7 @@
                                               :keyword))
                              (latest-q-data (gethash q-label metadata))
                              (fun-name (first (second (assoc :asked-functions latest-q-data))))
-                             (tc-code (gen-tc-code q-label fun-name body))
+                             (tc-code (generate-fiveam-test-with-cleanup q-label fun-name body))
                              (hdn-data `(:hidden ,tc-code)))
                         (setf (gethash q-label metadata)
                               (cons hdn-data latest-q-data))))
