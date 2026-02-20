@@ -1,1 +1,9 @@
-This is just a place holder for the new CodeGrader that uses the fiveam testing framework
+# 5ig
+### _Your Name <your.name@example.com>_
+
+This is a project to do ... something.
+
+## License
+
+Specify license here
+
