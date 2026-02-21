@@ -63,10 +63,12 @@
               ;; Run and return the list of result objects
               (fiveam:run ',test-name)
            ;; Cleanup: Forcefully remove the student's implementation
-           (when (fboundp ',fname)
-             (fmakunbound ',fname)
-             ;; Clear plists to prevent 'property injection' between students
-             (setf (symbol-plist ',fname) nil)))))))
+           (when (fboundp ',fname) (fmakunbound ',fname))
+           (when (boundp ',fname)  (makunbound ',fname))  ;; For global variables
+           ;; Clear plists to prevent 'property injection' between students
+           (setf (symbol-plist ',fname) nil)
+           ;; For macros
+           (setf (macro-function ',fname) nil))))))
 
 (defun gen-tc-code (q-label fname body)
   (let ((suite-name (intern (format nil "TEST-~A" (symbol-name q-label))))
@@ -266,7 +268,7 @@
                             (cons gvn-data latest-q-data))
                       (multiple-value-bind (body-text st)
                           (compile-nodes body state)
-                        (values (format nil "~s" body-text) st))))))
+                        (values (format nil "~a" body-text) st))))))
   
   (register-tag table :hdn-tag
                 (deftag hdn-tag (args state)
@@ -391,6 +393,15 @@
       (error (c)
         (format t "Error during PDF conversion: ~A~%" c)))))
 
+(defun save-metadata-perfectly (filename progn-form)
+  (with-open-file (out filename :direction :output :if-exists :supersede)
+    ;; Ensure *package* is set to the one where Q4-COUNT... and IS-SAFE live.
+    (let (
+          ;;(*package* (find-package :sxm-compiler))
+          (*print-pretty* t)
+          (*print-escape* t)
+          (*print-right-margin* 80))
+      (format out "~s" progn-form))))
 
 (defun gen-exam-files (from &key include-hidden)
   "Generates the orgmode, html, pdf,  and metadata files from the .sxm file 
@@ -419,15 +430,15 @@
       (format t "~&Assessment html file generated: ~a" html-file)
       (org-to-pdf orgmode-file)
       (format t "~&Assessment pdf file generated: ~a" pdf-file)
-      (with-open-file (out exam-data-file :direction :output :if-exists :supersede)
-        (format out "~s" (let (data)
-                           (maphash (lambda (k v)
-                                      (if (let ((s (symbol-name k)))
-                                            (and (= (length s) 2)
-                                                 (char= (aref s 0) #\q)))
-                                          (push `(,k ,@v) data)
-                                          (push (list k v) data)))
-                                    (compiler-state-metadata state))
-                           data)))
+      (save-metadata-perfectly exam-data-file
+                                (let (data)
+                                  (maphash (lambda (k v)
+                                             (if (let ((s (symbol-name k)))
+                                                   (and (= (length s) 2)
+                                                        (char= (aref s 0) #\q)))
+                                                 (push `(,k ,@v) data)
+                                                 (push (list k v) data)))
+                                           (compiler-state-metadata state))
+                                  data))
       (format t "~&Assessment metadata file created at: ~a~%" exam-data-file))))
 
