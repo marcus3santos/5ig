@@ -1,13 +1,18 @@
 ;;;; package.lisp
 
-(defpackage #:testing-runtime
-  (:documentation "Creates the code testing runtime")
-    (:use #:cl)
-    (:export #:is-safe))
+(defpackage #:sandbox
+  (:documentation "Sandbox for code evaluation")
+  (:use :cl))
 
 (defpackage #:utils
   (:use #:cl)
-  (:export #:read-form-and-intern))
+  (:export #:read-form-and-intern #:with-package
+           #:add-prefix-to-symbol-in-form))
+
+(defpackage #:testing-runtime
+  (:documentation "Creates the code testing runtime")
+  (:use #:cl #:sandbox :fiveam :utils)
+  (:export #:is-safe))
 
 (defpackage #:sxm-compiler
   (:nicknames #:sxm)
@@ -16,4 +21,5 @@
 
 (defpackage #:5ig
   (:use #:cl #:sxm-compiler)
-  (:export #:gen-exam-files))
+  (:export #:gen-exam-files)
+  )
