@@ -44,8 +44,8 @@
 
 (defun generate-fiveam-test-with-cleanup (q-label fname body)
   "Generates a namespaced FiveAM test and a cleanup runner for a specific question."
-  (let* ((test-name   (intern (format nil "~A-~A-TEST" q-label fname)))
-         (runner-name (intern (format nil "RUN-~A" test-name)))
+  (let* ((test-name   (intern (format nil "~A-~A-TEST" q-label fname) :sxm-compiler))
+         (runner-name (intern (format nil "RUN-~A" test-name) :sxm-compiler))
          ;; Filter and normalize checks from the body
          (checks (remove-if-not (lambda (x) (eq (car x) :a-tag)) body)))
     
@@ -55,7 +55,7 @@
          ,@(loop for check in checks
                  for call = (second check)
                  for expected = (third check)
-                 collect `(,(intern "IS-SAFE" :testing-runtime) (equal ,call ,expected) :timeout 2)))
+                 collect `(testing-runtime:is-safe (equal ,call ,expected) :timeout 2)))
 
        ;; 2. Define the Runner with Unwind-Protect
        (defun ,runner-name ()
@@ -395,9 +395,8 @@
 
 (defun save-metadata-perfectly (filename progn-form)
   (with-open-file (out filename :direction :output :if-exists :supersede)
-    ;; Ensure *package* is set to the one where Q4-COUNT... and IS-SAFE live.
-    (let (
-          ;;(*package* (find-package :sxm-compiler))
+    ;; Ensure *package* is set to the one where IS-SAFE live.
+    (let ((*package* (find-package :sxm-compiler))
           (*print-pretty* t)
           (*print-escape* t)
           (*print-right-margin* 80))
@@ -409,10 +408,7 @@
    If :INCLUDE-HIDDEN is T then the hidden test cases and question solutions
    will be added to the data file."
   (let* ((fn-ext (pathname-type from))
-         (sxm-form (if (and fn-ext (string= fn-ext "sxm"))
-                       (with-open-file (in from)
-                         (read in))
-                       (error "File name does not have the extension '.sxm': ~a" from)))
+         (sxm-form (read-form-and-intern from :sxm-compiler))
          (filename-root (format nil "~a~a~a"
                                 (directory-namestring from)
                                 *parent-folder*
@@ -431,14 +427,14 @@
       (org-to-pdf orgmode-file)
       (format t "~&Assessment pdf file generated: ~a" pdf-file)
       (save-metadata-perfectly exam-data-file
-                                (let (data)
-                                  (maphash (lambda (k v)
-                                             (if (let ((s (symbol-name k)))
-                                                   (and (= (length s) 2)
-                                                        (char= (aref s 0) #\q)))
-                                                 (push `(,k ,@v) data)
-                                                 (push (list k v) data)))
-                                           (compiler-state-metadata state))
-                                  data))
+                               (let (data)
+                                 (maphash (lambda (k v)
+                                            (if (let ((s (symbol-name k)))
+                                                  (and (= (length s) 2)
+                                                       (char= (aref s 0) #\q)))
+                                                (push `(,k ,@v) data)
+                                                (push (list k v) data)))
+                                          (compiler-state-metadata state))
+                                 data))
       (format t "~&Assessment metadata file created at: ~a~%" exam-data-file))))
 

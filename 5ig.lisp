@@ -23,7 +23,7 @@
                             failures))))
 
 (defun grade-student (student-file q-label fname)
-  (let ((runner-name (intern (format nil "RUN-~A-~A-TEST" q-label fname) :sxm-compiler)))
+  (let ((runner-name (intern (format nil "RUN-~A-~A-TEST" q-label fname) :testing-runtime)))
     ;; 1. Load student code
     (handler-case (load student-file)
       (error (c) (return-from grade-student 
@@ -46,3 +46,13 @@
   "questions is a list of lists: ((:Q1 'fn1) (:Q2 'fn2))"
   (loop for (q-label fname) in questions
         collect (grade-student student-file q-label fname)))
+
+(defun load-assessment-data (from)
+  (let* ((data (make-hash-table))
+         (form (read-form-and-intern from :testing-runtime)))
+    (dolist (q questions) 
+      (let ((q-label (first q))
+            (q-data (second q))
+            (given-test-progn (assoc :given q-data))
+            (hidden-test-progn (assoc :hidden q-data)))))
+    ))
