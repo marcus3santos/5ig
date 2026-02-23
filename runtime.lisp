@@ -67,8 +67,9 @@
 
 (defun test-grade-student (student-file q-label fname)
   "Evaluates metadata in the :testing-runtime package and executes the grade."
-  (let ((test-metadata 
-          (add-prefix-to-symbol-in-form
+  
+  (let ((test-metadata
+          (add-prefix-to-symbol-in-form 
            '(PROGN
              ;; Define the FiveAM test. Symbols like IS-SAFE will be 
              ;; resolved in the current package context during EVAL.
@@ -99,14 +100,16 @@
                  (WHEN (BOUNDP 'LIST-OF-ARRAYS) (MAKUNBOUND 'LIST-OF-ARRAYS))
                  (SETF (SYMBOL-PLIST 'LIST-OF-ARRAYS) NIL))))
            'list-of-arrays
-           :sandbox)))
+           :sandbox)
+          ))
     ;; 0. Export the function name from the sandbox
-    (export  ;;'(list-of-arrays) 
-
-     (mapcar (lambda (s)
-               (intern s :sandbox))
-             '("LIST-OF-ARRAYS"))
-     :sandbox)
+    (unintern 'list-of-arrays :testing-runtime)
+    (with-package :sandbox
+      (export 
+       (mapcar (lambda (s)
+                 (intern s :sandbox))
+               '("LIST-OF-ARRAYS"))
+       :sandbox))
 
     ;; 1. Set the evaluation context to :testing-runtime
     (with-package :testing-runtime
