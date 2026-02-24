@@ -12,7 +12,7 @@
 (defpackage #:testing-runtime
   (:documentation "Creates the code testing runtime")
   (:use #:cl #:sandbox :fiveam :utils)
-  (:export #:is-safe))
+  (:export #:is-safe #:process-assessment-test-case-data))
 
 (defpackage #:sxm-compiler
   (:nicknames #:sxm)
@@ -20,6 +20,5 @@
   (:export #:gen-exam-files))
 
 (defpackage #:5ig
-  (:use #:cl #:sxm-compiler)
-  (:export #:gen-exam-files)
-  )
+  (:use #:cl #:sxm-compiler #:testing-runtime)
+  (:export #:gen-exam-files))

@@ -85,10 +85,11 @@
         collect (grade-student student-file q-label fname kind)))
 
 (defun process-assessment-test-case-data (assessment-data-file q-labels-list)
-  "Exposes the asked-functions in the sandbox, and adds prefix package
-   to the function name in the test-cases code.
-   Returns an a-list ((q given hidden) ...) containing the processed given and hidden 
-   test-cases code"
+  "Exposes the asked-functions in the sandbox (so :testing-runtime package
+   can use them), and adds prefix package to the function name in the test-cases code.
+   Returns an a-list ((q asked-function given hidden) ...) containing the 
+   name of the function students were asked to implement, and the processed 
+   code for the given and hidden test-cases"
   (let* ((assessment-data (get-assessment-test-case-data assessment-data-file))
          (testcase-data (mapcar (lambda (q)
                                   (list q
@@ -108,21 +109,4 @@
                       :given (add-prefix-to-symbol-in-form (getf props :given) (getf props :asked-function) :sandbox)
                       :hidden (add-prefix-to-symbol-in-form (getf props :hidden) (getf props :asked-function) :sandbox))))
             testcase-data)))
-
-(defun test-grade-student (student-file assessment-data-file q-label)
-  "Evaluates metadata in the :testing-runtime package and executes the grade."
-  (let* ((assessment-test-case-data (process-assessment-test-case-data assessment-data-file (list q-label)))
-         (q-testcase-data (rest (assoc q-label assessment-test-case-data)))
-         (fname (getf q-testcase-data :asked-function))
-         (given-testcases-metadata (getf q-testcase-data :given)))
-    ;; 1. Set the evaluation context to :testing-runtime
-    (with-package :testing-runtime
-      ;; EVAL compiles/defines the test and runner in this package
-      (eval given-testcases-metadata)
-      
-      ;; 2. Perform the grading
-      ;; grade-student uses (intern (format ...)) to find the runner
-      ;; in the *package* where it is called.
-      (grade-student student-file q-label fname 'given))))
-
 
