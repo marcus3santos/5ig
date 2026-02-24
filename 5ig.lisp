@@ -2,6 +2,10 @@
 
 (in-package #:5ig)
 
+;;  Folder where the asssessment .data file should be stored
+
+(defparameter *assessment-data-folder* "~/quicklisp/local-projects/5ig/Assessment-data/")
+
 (defun derive-assessment-data-file (solution-file-path)
   "Derives the assessment data file path from the solution file path."
   (let* ((assessment-folder-name (car (last (pathname-directory solution-file-path))))
