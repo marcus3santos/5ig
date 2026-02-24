@@ -42,10 +42,10 @@
         p
         (concatenate 'string p "/"))))
 
-(defun generate-fiveam-test-with-cleanup (q-label fname body)
+(defun generate-fiveam-test-with-cleanup (kind q-label fname body)
   "Generates a namespaced FiveAM test and a cleanup runner for a specific question."
-  (let* ((test-name   (intern (format nil "~A-~A-TEST" q-label fname) :sxm-compiler))
-         (runner-name (intern (format nil "RUN-~A" test-name) :sxm-compiler))
+  (let* ((test-name   (intern (format nil "~A-~A-~A-TEST" q-label fname kind) :testing-runtime))
+         (runner-name (intern (format nil "RUN-~A" test-name) :testing-runtime))
          ;; Filter and normalize checks from the body
          (checks (remove-if-not (lambda (x) (eq (car x) :a-tag)) body)))
     
@@ -55,7 +55,7 @@
          ,@(loop for check in checks
                  for call = (second check)
                  for expected = (third check)
-                 collect `(testing-runtime:is-safe (equal ,call ,expected) :timeout 2)))
+                 collect `(testing-runtime:is-safe (equalp ,call ,expected) :timeout 2)))
 
        ;; 2. Define the Runner with Unwind-Protect
        (defun ,runner-name ()
@@ -66,9 +66,7 @@
            (when (fboundp ',fname) (fmakunbound ',fname))
            (when (boundp ',fname)  (makunbound ',fname))  ;; For global variables
            ;; Clear plists to prevent 'property injection' between students
-           (setf (symbol-plist ',fname) nil)
-           ;; For macros
-           (setf (macro-function ',fname) nil))))))
+           (setf (symbol-plist ',fname) nil))))))
 
 (defun gen-tc-code (q-label fname body)
   (let ((suite-name (intern (format nil "TEST-~A" (symbol-name q-label))))
@@ -246,7 +244,7 @@
                            (fname (getf props :function))
                            (fnames-data (gethash :fnames metadata)))
                       (setf (gethash latest-q metadata)
-                            (cons (list :asked-functions (list fname))
+                            (cons (list :asked-function fname)
                                   q-data))
                       (unless (member fname fnames-data)
                         (setf (gethash :fnames metadata) (cons fname fnames-data)))
@@ -261,8 +259,8 @@
                            (q-label (intern (format nil "Q~a" (getf (compiler-state-env state) :q-num))
                                             :keyword))
                            (latest-q-data (gethash q-label metadata))
-                           (fun-name (first (second (assoc :asked-functions latest-q-data))))
-                           (tc-code (generate-fiveam-test-with-cleanup q-label fun-name body))
+                           (fun-name (second (assoc :asked-function latest-q-data)))
+                           (tc-code (generate-fiveam-test-with-cleanup 'given q-label fun-name body))
                            (gvn-data `(:given ,tc-code)))
                       (setf (gethash q-label metadata)
                             (cons gvn-data latest-q-data))
@@ -279,8 +277,8 @@
                              (q-label (intern (format nil "Q~a" (getf (compiler-state-env state) :q-num))
                                               :keyword))
                              (latest-q-data (gethash q-label metadata))
-                             (fun-name (first (second (assoc :asked-functions latest-q-data))))
-                             (tc-code (generate-fiveam-test-with-cleanup q-label fun-name body))
+                             (fun-name (second (assoc :asked-function latest-q-data)))
+                             (tc-code (generate-fiveam-test-with-cleanup 'hidden q-label fun-name body))
                              (hdn-data `(:hidden ,tc-code)))
                         (setf (gethash q-label metadata)
                               (cons hdn-data latest-q-data))))
@@ -396,7 +394,7 @@
 (defun save-metadata-perfectly (filename progn-form)
   (with-open-file (out filename :direction :output :if-exists :supersede)
     ;; Ensure *package* is set to the one where IS-SAFE live.
-    (let ((*package* (find-package :sxm-compiler))
+    (let ((*package* (find-package :testing-runtime))
           (*print-pretty* t)
           (*print-escape* t)
           (*print-right-margin* 80))
@@ -407,8 +405,8 @@
    containing the assessment's description. 
    If :INCLUDE-HIDDEN is T then the hidden test cases and question solutions
    will be added to the data file."
-  (let* ((fn-ext (pathname-type from))
-         (sxm-form (read-form-and-intern from :sxm-compiler))
+  (let* (;;(fn-ext (pathname-type from))
+         (sxm-form (read-form-and-intern from :testing-runtime))
          (filename-root (format nil "~a~a~a"
                                 (directory-namestring from)
                                 *parent-folder*

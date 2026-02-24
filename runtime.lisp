@@ -37,8 +37,28 @@
                                     :type (type-of f)))
                             failures))))
 
-(defun grade-student (student-file q-label fname)
-  (let ((runner-name (intern (format nil "RUN-~A-~A-TEST" q-label fname))))
+(defun q-label-p (label)
+  (let ((str (symbol-name label)))
+    (and (not (string= str "QUESTIONS"))
+         (char= (aref str 0) #\Q))))
+
+(defun get-assessment-test-case-data (assessment-data-file)
+  "Return assoc list with relevant data from each question"
+  (let* ((assessment-data (with-open-file (in assessment-data-file)
+                            (read in))))
+    (mapcar (lambda (qdata)
+              (list (first qdata)
+                    (remove-if-not (lambda (data)
+                                     (or (eq data :solutions)
+                                         (eq data :hidden)
+                                         (eq data :given)
+                                         (eq data :asked-function)))
+                                   (second qdata) :key #'first)))
+            (remove-if-not  #'q-label-p  assessment-data :key #'first)) ))
+
+
+(defun grade-student (student-file q-label fname kind)
+  (let ((runner-name (intern (format nil "RUN-~A-~A-~A-TEST" q-label fname kind))))
     ;; 1. Load student code
     
     (handler-case (with-package :sandbox
@@ -57,68 +77,52 @@
               (getf (getf summary :stats) :total)
               (getf summary :score))
       
-      summary)
-    ))
+      summary)))
 
-(defun process-entire-exam (student-file questions)
+(defun process-entire-exam (student-file questions kind)
   "questions is a list of lists: ((:Q1 'fn1) (:Q2 'fn2))"
   (loop for (q-label fname) in questions
-        collect (grade-student student-file q-label fname)))
+        collect (grade-student student-file q-label fname kind)))
 
-(defun test-grade-student (student-file q-label fname)
+(defun process-assessment-test-case-data (assessment-data-file q-labels-list)
+  "Exposes the asked-functions in the sandbox, and adds prefix package
+   to the function name in the test-cases code.
+   Returns an a-list ((q given hidden) ...) containing the processed given and hidden 
+   test-cases code"
+  (let* ((assessment-data (get-assessment-test-case-data assessment-data-file))
+         (testcase-data (mapcar (lambda (q)
+                                  (list q
+                                        :asked-function (second (assoc :asked-function (second (assoc q assessment-data))))
+                                        :given (second (assoc :given (second (assoc q assessment-data))))
+                                        :hidden (second (assoc :hidden (second (assoc q assessment-data))))))
+                              q-labels-list)))
+    (mapc (lambda (d)
+            (unintern  (getf (rest d) :asked-function) :testing-runtime)
+            (export (list (intern (symbol-name (getf (rest d) :asked-function)) :sandbox)) :sandbox))
+          testcase-data)
+    (mapcar (lambda (tc-data)
+              (let* ((q-label (first tc-data))
+                     (props (rest tc-data)))
+                (list q-label
+                      :asked-function (getf props :asked-function) 
+                      :given (add-prefix-to-symbol-in-form (getf props :given) (getf props :asked-function) :sandbox)
+                      :hidden (add-prefix-to-symbol-in-form (getf props :hidden) (getf props :asked-function) :sandbox))))
+            testcase-data)))
+
+(defun test-grade-student (student-file assessment-data-file q-label)
   "Evaluates metadata in the :testing-runtime package and executes the grade."
-  
-  (let ((test-metadata
-          (add-prefix-to-symbol-in-form 
-           '(PROGN
-             ;; Define the FiveAM test. Symbols like IS-SAFE will be 
-             ;; resolved in the current package context during EVAL.
-             (IT.BESE.FIVEAM:TEST Q1-LIST-OF-ARRAYS-TEST
-               (IS-SAFE (EQUALP (LIST-OF-ARRAYS NIL NIL) NIL) :TIMEOUT 2)
-               (IS-SAFE
-                (EQUALP (LIST-OF-ARRAYS (LIST 1 2) (LIST 3 4)) (LIST #(1 3 4) #(2 4 6)))
-                :TIMEOUT 2)
-               (IS-SAFE
-                (EQUALP (LIST-OF-ARRAYS (LIST -1 2 -3) (LIST 4 3 -2))
-                        (LIST #(-1 4 3) #(2 3 5) #(-3 -2 -5)))
-                :TIMEOUT 2)
-               (IS-SAFE
-                (EQUALP (LIST-OF-ARRAYS (LIST 10 20) (LIST 30 40))
-                        (LIST #(10 30 40) #(20 40 60)))
-                :TIMEOUT 2)
-               (IS-SAFE (EQUALP (LIST-OF-ARRAYS (LIST 5) (LIST 10)) (LIST #(5 10 15)))
-                        :TIMEOUT 2)
-               (IS-SAFE
-                (EQUALP (LIST-OF-ARRAYS (LIST 2 4 6 8) (LIST 0 0 0 0))
-                        (LIST #(2 0 2) #(4 0 4) #(6 0 6) #(8 0 8)))
-                :TIMEOUT 2))
-             
-             ;; Define the runner function
-             (DEFUN RUN-Q1-LIST-OF-ARRAYS-TEST ()
-               (UNWIND-PROTECT (IT.BESE.FIVEAM:RUN 'Q1-LIST-OF-ARRAYS-TEST)
-                 (WHEN (FBOUNDP 'LIST-OF-ARRAYS) (FMAKUNBOUND 'LIST-OF-ARRAYS))
-                 (WHEN (BOUNDP 'LIST-OF-ARRAYS) (MAKUNBOUND 'LIST-OF-ARRAYS))
-                 (SETF (SYMBOL-PLIST 'LIST-OF-ARRAYS) NIL))))
-           'list-of-arrays
-           :sandbox)
-          ))
-    ;; 0. Export the function name from the sandbox
-    (unintern 'list-of-arrays :testing-runtime)
-    (with-package :sandbox
-      (export 
-       (mapcar (lambda (s)
-                 (intern s :sandbox))
-               '("LIST-OF-ARRAYS"))
-       :sandbox))
-
+  (let* ((assessment-test-case-data (process-assessment-test-case-data assessment-data-file (list q-label)))
+         (q-testcase-data (rest (assoc q-label assessment-test-case-data)))
+         (fname (getf q-testcase-data :asked-function))
+         (given-testcases-metadata (getf q-testcase-data :given)))
     ;; 1. Set the evaluation context to :testing-runtime
     (with-package :testing-runtime
       ;; EVAL compiles/defines the test and runner in this package
-      (eval test-metadata)
+      (eval given-testcases-metadata)
       
       ;; 2. Perform the grading
       ;; grade-student uses (intern (format ...)) to find the runner
       ;; in the *package* where it is called.
-      (grade-student student-file q-label fname))))
+      (grade-student student-file q-label fname 'given))))
 
 
