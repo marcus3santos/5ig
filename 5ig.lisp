@@ -34,8 +34,7 @@
     (mapcar (lambda (qdata)
               `(,(first qdata)
                 ,@(remove-if-not (lambda (data)
-                                   (or (eq data :solutions)
-                                       (eq data :hidden)
+                                   (or (eq data :hidden)
                                        (eq data :given)
                                        (eq data :asked-function)))
                                  (rest qdata) :key #'first)))
@@ -80,27 +79,21 @@
   (let* ((assessment-data (get-assessment-test-case-data assessment-data-file))
          (testcase-data (mapcar (lambda (q)
                                   (list q
-                                        :asked-function (second (assoc :asked-function (second (assoc q assessment-data))))
-                                        :given (second (assoc :given (second (assoc q assessment-data))))
-                                        :hidden (second (assoc :hidden (second (assoc q assessment-data))))))
+                                        :asked-function (second (assoc :asked-function (rest (assoc q assessment-data))))
+                                        :given (second (assoc :given (rest (assoc q assessment-data))))
+                                        :hidden (second (assoc :hidden (rest (assoc q assessment-data))))))
                               q-labels-list)))
     (mapc (lambda (d)
             (export (list (intern (symbol-name (getf (rest d) :asked-function)) :sandbox)) :sandbox))
           testcase-data)
-    (mapcar (lambda (tc-data)
-              (let* ((q-label (first tc-data))
-                     (props (rest tc-data)))
-                (list q-label
-                      :asked-function (getf props :asked-function) 
-                      :given (add-prefix-to-symbol-in-form (getf props :given) (getf props :asked-function) :sandbox)
-                      :hidden (add-prefix-to-symbol-in-form (getf props :hidden) (getf props :asked-function) :sandbox))))
-            testcase-data)))
+    testcase-data))
 
 (defun test-grade-student (student-file assessment-data-file q-label)
   "Evaluates metadata in the sandbox package and executes the grade."
   (let* ((assessment-test-case-data (process-assessment-test-case-data assessment-data-file (list q-label)))
-         (q-testcase-data (rest (assoc q-label assessment-test-case-data)))
-         (fname (second (assoc :asked-function q-testcase-data)))
+         (q-testcase-data (progn (format t "~s @@@~%" (rest (assoc q-label assessment-test-case-data)))
+                                 (rest (assoc q-label assessment-test-case-data))))
+         (fname (getf q-testcase-data :asked-function))
          (given-testcases-metadata (getf q-testcase-data :given)))
     ;; 1. Set the evaluation context to :sandbox
     (with-package :sandbox
@@ -110,6 +103,7 @@
       ;; 2. Perform the grading
       ;; grade-student uses (intern (format ...)) to find the runner
       ;; in the *package* where it is called.
+      
       (grade-student student-file q-label fname 'given))))
 
 (defun derive-assessment-data-file (solution-file-path)
