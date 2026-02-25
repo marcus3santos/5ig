@@ -19,5 +19,5 @@
   (:export #:gen-exam-files))
 
 (defpackage #:5ig
-  (:use #:cl #:sxm-compiler)
+  (:use #:cl #:sxm-compiler #:utils)
   (:export #:gen-exam-files))

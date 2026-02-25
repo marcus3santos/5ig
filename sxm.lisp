@@ -73,19 +73,6 @@
            ;; Clear plists to prevent 'property injection' between students
            (setf (symbol-plist ',fname) nil))))))
 
-(defun gen-tc-code (q-label fname body)
-  (let ((suite-name (intern (format nil "TEST-~A" (symbol-name q-label))))
-        (test-name (intern (format nil "TEST-~A" fname))))
-    `((declaim (notinline ,fname))
-      (deftest ,test-name ()
-        (check
-          ,@(mapcar (lambda (a)
-                      (list 'equalp (second a) (third a)))
-                    body)))
-      (defun ,suite-name ()
-        (,test-name)
-        (fmakunbound (quote ,fname-symb))))))
-
 (defun register-core-tags (table)
   "Registers the functions created by the deftag macro in the hash table
    using as the tags as key"
@@ -396,14 +383,18 @@
       (error (c)
         (format t "Error during PDF conversion: ~A~%" c)))))
 
-(defun save-metadata-perfectly (filename progn-form)
+(defun save-metadata-perfectly (filename ht)
   (with-open-file (out filename :direction :output :if-exists :supersede)
-    ;; Ensure *package* is set to the one where IS-SAFE live.
-    (let ((*package* (find-package :sandbox))
-          (*print-pretty* t)
-          (*print-escape* t)
-          (*print-right-margin* 80))
-      (format out "~s" progn-form))))
+    (format out "~s" 
+            (let (data)
+              (maphash (lambda (k v)
+                         (if (let ((s (string-upcase (symbol-name k))))
+                               (and (not (string= s "QUESTIONS"))
+                                    (char= (aref s 0) #\Q)))
+                             (push `(,k ,@v) data)
+                             (push (list k v) data)))
+                       ht)
+              data))))
 
 (defun gen-exam-files (from &key include-hidden)
   "Generates the orgmode, html, pdf,  and metadata files from the .sxm file 
@@ -411,8 +402,9 @@
    If :INCLUDE-HIDDEN is T then the hidden test cases and question solutions
    will be added to the data file."
   (let* (;;(fn-ext (pathname-type from))
-         (sxm-form (let ((form (with-open-file (in from) 
-                                 (read in))))
+         (sxm-form (let ((form (let ((*package* (find-package :sandbox)))
+                                 (with-open-file (in from) 
+                                   (read in)))))
                      (format t "~a" (car form))
                      (if (string= (string-upcase (symbol-name (car form))) "DOC")
                          form
@@ -434,16 +426,6 @@
       (format t "~&Assessment html file generated: ~a" html-file)
       (org-to-pdf orgmode-file)
       (format t "~&Assessment pdf file generated: ~a" pdf-file)
-      (with-open-file (out exam-data-file :direction :output :if-exists :supersede)
-        (format out "~s" 
-                (let (data)
-                  (maphash (lambda (k v)
-                             (if (let ((s (string-upcase (symbol-name k))))
-                                   (and (not (string= s "QUESTIONS"))
-                                        (char= (aref s 0) #\Q)))
-                                 (push `(,k ,@v) data)
-                                 (push (list k v) data)))
-                           (compiler-state-metadata state))
-                  data)))
+      (save-metadata-perfectly exam-data-file (compiler-state-metadata state))
       (format t "~&Assessment metadata file created at: ~a~%" exam-data-file))))
 

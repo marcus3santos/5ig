@@ -32,13 +32,13 @@
   (let* ((assessment-data (with-open-file (in assessment-data-file)
                             (read in))))
     (mapcar (lambda (qdata)
-              (list (first qdata)
-                    (remove-if-not (lambda (data)
-                                     (or (eq data :solutions)
-                                         (eq data :hidden)
-                                         (eq data :given)
-                                         (eq data :asked-function)))
-                                   (second qdata) :key #'first)))
+              `(,(first qdata)
+                ,@(remove-if-not (lambda (data)
+                                   (or (eq data :solutions)
+                                       (eq data :hidden)
+                                       (eq data :given)
+                                       (eq data :asked-function)))
+                                 (rest qdata) :key #'first)))
             (remove-if-not  #'q-label-p  assessment-data :key #'first)) ))
 
 
@@ -85,7 +85,6 @@
                                         :hidden (second (assoc :hidden (second (assoc q assessment-data))))))
                               q-labels-list)))
     (mapc (lambda (d)
-            (unintern  (getf (rest d) :asked-function) :testing-runtime)
             (export (list (intern (symbol-name (getf (rest d) :asked-function)) :sandbox)) :sandbox))
           testcase-data)
     (mapcar (lambda (tc-data)
@@ -101,10 +100,10 @@
   "Evaluates metadata in the sandbox package and executes the grade."
   (let* ((assessment-test-case-data (process-assessment-test-case-data assessment-data-file (list q-label)))
          (q-testcase-data (rest (assoc q-label assessment-test-case-data)))
-         (fname (getf q-testcase-data :asked-function))
+         (fname (second (assoc :asked-function q-testcase-data)))
          (given-testcases-metadata (getf q-testcase-data :given)))
-    ;; 1. Set the evaluation context to :testing-runtime
-    (with-package :testing-runtime
+    ;; 1. Set the evaluation context to :sandbox
+    (with-package :sandbox
       ;; EVAL compiles/defines the test and runner in this package
       (eval given-testcases-metadata)
       
