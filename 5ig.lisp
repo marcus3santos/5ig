@@ -2,49 +2,103 @@
 
 (in-package #:5ig)
 
-;;  Folder where the asssessment .data file should be stored
+(defun summarize-results (q-label results)
+  "Aggregates FiveAM result objects into a summarized report."
 
-(defparameter *assessment-data-folder* "~/quicklisp/local-projects/5ig/Assessment-data/")
+  (let ((total (length results))
+        (passed (count-if (lambda (res) 
+                            (typep res 'fiveam::test-passed)) 
+                          results))
+        (failures (remove-if (lambda (res) 
+                               (typep res 'fiveam::test-passed)) 
+                             results)))
+    (list :q-label q-label
+          :score (if (zerop total) 0 (* 100 (/ passed total)))
+          :stats (list :total total :passed passed :failed (length failures))
+          ;; Map the failures into a clean feedback list
+          :feedback (mapcar (lambda (f)
+                              (list :expr (fiveam::test-expr f)
+                                    :reason (fiveam::reason f)
+                                    :type (type-of f)))
+                            failures))))
 
-(defun derive-assessment-data-file (solution-file-path)
-  "Derives the assessment data file path from the solution file path."
-  (let* ((assessment-folder-name (car (last (pathname-directory solution-file-path))))
-         (assessment-data-file (format nil "~a~a.data" *assessment-data-folder* assessment-folder-name)))
-    assessment-data-file))
+(defun q-label-p (label)
+  (let ((str (symbol-name label)))
+    (and (not (string= str "QUESTIONS"))
+         (char= (aref str 0) #\Q))))
 
-(defun probe-assessment-file (file)
-  (let* ((pnd (pathname-directory file))
-         (home (nth (- (length pnd) 2) pnd))
-         (user-name (car (last (pathname-directory (user-homedir-pathname))))))
-    (and (or (and (symbolp home)
-                  (string= "HOME" (symbol-name home)))
-             (and (stringp home)
-                  (string= user-name home)))
-         (probe-file file))))
+(defun get-assessment-test-case-data (assessment-data-file)
+  "Return assoc list with relevant data from each question"
+  (let* ((assessment-data (with-open-file (in assessment-data-file)
+                            (read in))))
+    (mapcar (lambda (qdata)
+              (list (first qdata)
+                    (remove-if-not (lambda (data)
+                                     (or (eq data :solutions)
+                                         (eq data :hidden)
+                                         (eq data :given)
+                                         (eq data :asked-function)))
+                                   (second qdata) :key #'first)))
+            (remove-if-not  #'q-label-p  assessment-data :key #'first)) ))
 
-(defun chk-my-solution (a#)
-  "Checks a student's solution file against examples.
-   a#: String identifying the solution file, e.g., '~/lab01/q1.lisp'."
-  (unless (probe-assessment-file a#)
-    (error "~%!!!!!!!! Error: You saved your file in the wrong folder. Please save it in the specified folder. !!!!!!!!"))
-  (let* ((assessment-data-file (derive-assessment-data-file a#))
-         (q-label (intern (string-upcase (pathname-name a#)) :keyword))
-         (assessment-test-case-data (process-assessment-test-case-data assessment-data-file (list q-label)))
-         (q-test-case-data (rest (assoc q-label assessment-test-case-data)))
-         (fname (getf q-testcase-data :asked-function))
-         (given-test-cases-metadata (getf q-test-case-data :given)))
-    (with-package :testing-runtime
-      ;; EVAL compiles/defines the test and runner in this package
-      (eval given-test-cases-metadata)
+
+(defun grade-student (student-file q-label fname kind)
+  "Loads the student's program file in the sandbox,
+   depending on KIND runs the given or hidden fiveam test cases, 
+   and collects the results"
+  (let ((runner-name (intern (format nil "RUN-~A-~A-~A-TEST" q-label fname kind))))
+    ;; 1. Load student code
+    
+    (handler-case (with-package :sandbox
+                    (load student-file))
+      (error (c) (return-from grade-student 
+                   (list :q-label q-label :error (format nil "Load Error: ~A" c)))))
+
+    ;; 2. Execute the pre-compiled runner
+    (let* ((raw-results (funcall runner-name))
+           (summary (summarize-results q-label raw-results)))
       
-      ;; 2. Perform the grading
-      ;; grade-student uses (intern (format ...)) to find the runner
-      ;; in the *package* where it is called.
-      (grade-student a# q-label fname 'given)))
-  t)
+      ;; 3. Log or Print the outcome
+      (format t "~&Question ~A: ~D/~D passed (~A%)~%" 
+              q-label 
+              (getf (getf summary :stats) :passed)
+              (getf (getf summary :stats) :total)
+              (getf summary :score))
+      
+      summary)))
+
+(defun process-entire-exam (student-file questions kind)
+  "questions is a list of lists: ((:Q1 'fn1) (:Q2 'fn2))"
+  (loop for (q-label fname) in questions
+        collect (grade-student student-file q-label fname kind)))
+
+(defun process-assessment-test-case-data (assessment-data-file q-labels-list)
+  "Exposes the asked-functions in the sandbox, and adds prefix package
+   to the function name in the test-cases code.
+   Returns an a-list ((q given hidden) ...) containing the processed given and hidden 
+   test-cases code"
+  (let* ((assessment-data (get-assessment-test-case-data assessment-data-file))
+         (testcase-data (mapcar (lambda (q)
+                                  (list q
+                                        :asked-function (second (assoc :asked-function (second (assoc q assessment-data))))
+                                        :given (second (assoc :given (second (assoc q assessment-data))))
+                                        :hidden (second (assoc :hidden (second (assoc q assessment-data))))))
+                              q-labels-list)))
+    (mapc (lambda (d)
+            (unintern  (getf (rest d) :asked-function) :testing-runtime)
+            (export (list (intern (symbol-name (getf (rest d) :asked-function)) :sandbox)) :sandbox))
+          testcase-data)
+    (mapcar (lambda (tc-data)
+              (let* ((q-label (first tc-data))
+                     (props (rest tc-data)))
+                (list q-label
+                      :asked-function (getf props :asked-function) 
+                      :given (add-prefix-to-symbol-in-form (getf props :given) (getf props :asked-function) :sandbox)
+                      :hidden (add-prefix-to-symbol-in-form (getf props :hidden) (getf props :asked-function) :sandbox))))
+            testcase-data)))
 
 (defun test-grade-student (student-file assessment-data-file q-label)
-  "Evaluates metadata in the :testing-runtime package and executes the grade."
+  "Evaluates metadata in the sandbox package and executes the grade."
   (let* ((assessment-test-case-data (process-assessment-test-case-data assessment-data-file (list q-label)))
          (q-testcase-data (rest (assoc q-label assessment-test-case-data)))
          (fname (getf q-testcase-data :asked-function))
@@ -59,4 +113,29 @@
       ;; in the *package* where it is called.
       (grade-student student-file q-label fname 'given))))
 
+(defun derive-assessment-data-file (solution-file-path)
+  "Derives the assessment data file path from the solution file path."
+  (let* ((assessment-folder-name (car (last (pathname-directory solution-file-path))))
+         (assessment-data-file (format nil "~a~a.data" *assessment-data-folder* assessment-folder-name)))
+    assessment-data-file))
 
+#|
+(defun chk-my-solution (a#)
+  "Checks a student's solution file against examples.
+   a#: String identifying the solution file, e.g., '~/lab01/q1.lisp'."
+  (unless (probe-assessment-file a#)
+    (error "~%!!!!!!!! Error: You saved your file in the wrong folder. Please save it in the specified folder. !!!!!!!!"))
+  (let* ((assessment-data-file (derive-assessment-data-file a#))
+         (q-label (intern (string-upcase (pathname-name a#)) :keyword))
+         (assessment-data (process-assessment-data assessment-data-file (list q-label)))
+         (current-pckg *package*))
+    (unwind-protect
+         (format t "~V@{~A~:*~}~%Lisp generated load/compile messages:" *separators* "+")         
+      (let* ((eval (load-and-evaluate-solution a# question-name assessment-data))
+             (error-type (second eval)))
+        (handle-evaluation-output error-type eval question-name)
+        (critique-student-solution a#))
+      (setf *package* current-pckg)))
+  t)
+
+|#

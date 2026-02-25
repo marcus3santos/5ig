@@ -1,3 +1,8 @@
+#|
+(defpackage :sxm-compiler
+  (:use #:cl #:fiveam #:utils))
+|#
+
 (in-package :sxm-compiler)
 
 (defparameter *parent-folder* "Gen-files/")
@@ -44,8 +49,8 @@
 
 (defun generate-fiveam-test-with-cleanup (kind q-label fname body)
   "Generates a namespaced FiveAM test and a cleanup runner for a specific question."
-  (let* ((test-name   (intern (format nil "~A-~A-~A-TEST" q-label fname kind) :testing-runtime))
-         (runner-name (intern (format nil "RUN-~A" test-name) :testing-runtime))
+  (let* ((test-name   (intern (format nil "~A-~A-~A-TEST" q-label fname kind) :sandbox))
+         (runner-name (intern (format nil "RUN-~A" test-name) :sandbox))
          ;; Filter and normalize checks from the body
          (checks (remove-if-not (lambda (x) (eq (car x) :a-tag)) body)))
     
@@ -55,7 +60,7 @@
          ,@(loop for check in checks
                  for call = (second check)
                  for expected = (third check)
-                 collect `(testing-runtime:is-safe (equalp ,call ,expected) :timeout 2)))
+                 collect `(utils:is-safe (equalp ,call ,expected) :timeout 2)))
 
        ;; 2. Define the Runner with Unwind-Protect
        (defun ,runner-name ()
@@ -394,7 +399,7 @@
 (defun save-metadata-perfectly (filename progn-form)
   (with-open-file (out filename :direction :output :if-exists :supersede)
     ;; Ensure *package* is set to the one where IS-SAFE live.
-    (let ((*package* (find-package :testing-runtime))
+    (let ((*package* (find-package :sandbox))
           (*print-pretty* t)
           (*print-escape* t)
           (*print-right-margin* 80))
@@ -406,7 +411,12 @@
    If :INCLUDE-HIDDEN is T then the hidden test cases and question solutions
    will be added to the data file."
   (let* (;;(fn-ext (pathname-type from))
-         (sxm-form (read-form-and-intern from :testing-runtime))
+         (sxm-form (let ((form (with-open-file (in from) 
+                                 (read in))))
+                     (format t "~a" (car form))
+                     (if (string= (string-upcase (symbol-name (car form))) "DOC")
+                         form
+                         (error "This SXM file did not start with (:doc ...)"))))
          (filename-root (format nil "~a~a~a"
                                 (directory-namestring from)
                                 *parent-folder*
@@ -424,15 +434,16 @@
       (format t "~&Assessment html file generated: ~a" html-file)
       (org-to-pdf orgmode-file)
       (format t "~&Assessment pdf file generated: ~a" pdf-file)
-      (save-metadata-perfectly exam-data-file
-                               (let (data)
-                                 (maphash (lambda (k v)
-                                            (if (let ((s (symbol-name k)))
-                                                  (and (= (length s) 2)
-                                                       (char= (aref s 0) #\q)))
-                                                (push `(,k ,@v) data)
-                                                (push (list k v) data)))
-                                          (compiler-state-metadata state))
-                                 data))
+      (with-open-file (out exam-data-file :direction :output :if-exists :supersede)
+        (format out "~s" 
+                (let (data)
+                  (maphash (lambda (k v)
+                             (if (let ((s (string-upcase (symbol-name k))))
+                                   (and (not (string= s "QUESTIONS"))
+                                        (char= (aref s 0) #\Q)))
+                                 (push `(,k ,@v) data)
+                                 (push (list k v) data)))
+                           (compiler-state-metadata state))
+                  data)))
       (format t "~&Assessment metadata file created at: ~a~%" exam-data-file))))
 

@@ -9,7 +9,6 @@
   :serial t
   :depends-on (:fiveam)
   :components ((:file "package")
-               (:file "runtime")
                (:file "utils")
                (:file "sxm")
                (:file "5ig")))
