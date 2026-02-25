@@ -91,8 +91,7 @@
 (defun test-grade-student (student-file assessment-data-file q-label)
   "Evaluates metadata in the sandbox package and executes the grade."
   (let* ((assessment-test-case-data (process-assessment-test-case-data assessment-data-file (list q-label)))
-         (q-testcase-data (progn (format t "~s @@@~%" (rest (assoc q-label assessment-test-case-data)))
-                                 (rest (assoc q-label assessment-test-case-data))))
+         (q-testcase-data (rest (assoc q-label assessment-test-case-data)))
          (fname (getf q-testcase-data :asked-function))
          (given-testcases-metadata (getf q-testcase-data :given)))
     ;; 1. Set the evaluation context to :sandbox
