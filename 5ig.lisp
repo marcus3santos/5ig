@@ -88,8 +88,18 @@
           testcase-data)
     testcase-data))
 
+(defun reset-sandbox-package ()
+  (let ((pkg (find-package :sandbox)))
+    (when pkg
+      ;; Unuse everything to break links
+      (unuse-package :sandbox pkg)
+      ;; Delete and recreate or just unintern all symbols
+      (do-symbols (s pkg)
+        (unintern s pkg)))))
+
 (defun test-grade-student (student-file assessment-data-file q-label)
   "Evaluates metadata in the sandbox package and executes the grade."
+  (reset-sandbox-package)
   (let* ((assessment-test-case-data (process-assessment-test-case-data assessment-data-file (list q-label)))
          (q-testcase-data (rest (assoc q-label assessment-test-case-data)))
          (fname (getf q-testcase-data :asked-function))
@@ -98,8 +108,7 @@
     (with-package :sandbox
       ;; EVAL compiles/defines the test and runner in this package
       (eval given-testcases-metadata)
-      
-      ;; 2. Perform the grading
+     ;; 2. Perform the grading
       ;; grade-student uses (intern (format ...)) to find the runner
       ;; in the *package* where it is called.
       

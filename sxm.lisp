@@ -49,13 +49,15 @@
 
 (defun generate-fiveam-test-with-cleanup (kind q-label fname body)
   "Generates a namespaced FiveAM test and a cleanup runner for a specific question."
-  (let* ((test-name   (intern (format nil "~A-~A-~A-TEST" q-label fname kind) :sandbox))
+  (let* ((target-sym (intern (string fname) :sandbox))
+         (test-name   (intern (format nil "~A-~A-~A-TEST" q-label fname kind) :sandbox))
          (runner-name (intern (format nil "RUN-~A" test-name) :sandbox))
          ;; Filter and normalize checks from the body
          (checks (remove-if-not (lambda (x) (eq (car x) :a-tag)) body)))
     
     `(progn
        ;; 1. Define the namespaced FiveAM Test
+       (declaim (notinline ,target-sym))
        (fiveam:test ,test-name
          ,@(loop for check in checks
                  for call = (second check)
@@ -405,7 +407,6 @@
          (sxm-form (let ((form (let ((*package* (find-package :sandbox)))
                                  (with-open-file (in from) 
                                    (read in)))))
-                     (format t "~a" (car form))
                      (if (string= (string-upcase (symbol-name (car form))) "DOC")
                          form
                          (error "This SXM file did not start with (:doc ...)"))))
