@@ -28,7 +28,8 @@
          (char= (aref str 0) #\Q))))
 
 (defun get-assessment-test-case-data (assessment-data-file)
-  "Return assoc list with relevant data from each question"
+  "Return assoc list (:qi <tagged-data>) where :qi is a question label and
+   <tagged-data> are forms of the kind (:tag <data>)"
   (let* ((assessment-data (with-open-file (in assessment-data-file)
                             (read in))))
     (mapcar (lambda (qdata)
@@ -66,15 +67,8 @@
       
       summary)))
 
-(defun process-entire-exam (student-file questions kind)
-  "questions is a list of lists: ((:Q1 'fn1) (:Q2 'fn2))"
-  (loop for (q-label fname) in questions
-        collect (grade-student student-file q-label fname kind)))
-
 (defun process-assessment-test-case-data (assessment-data-file q-labels-list)
-  "Exposes the asked-functions in the sandbox, and adds prefix package
-   to the function name in the test-cases code.
-   Returns an a-list ((q given hidden) ...) containing the processed given and hidden 
+  "Returns an a-list ((q given hidden) ...) containing the processed given and hidden 
    test-cases code"
   (let* ((assessment-data (get-assessment-test-case-data assessment-data-file))
          (testcase-data (mapcar (lambda (q)
