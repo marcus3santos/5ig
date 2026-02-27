@@ -1,5 +1,5 @@
 #+TITLE: 5ig
 
-5ig Is a Grader for Common Lisp Programming assessments. It uses fiveam's testing framework.
+5ig Is a Grader for Common Lisp Programming assessments. It uses FiveAM's testing framework.
 
 
