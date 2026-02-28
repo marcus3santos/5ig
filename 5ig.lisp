@@ -2,6 +2,10 @@
 
 (in-package #:5ig)
 
+;; Folder where assessment metadata files should be store
+
+(defparameter *assessment-data-folder* "~/quicklisp/local-projects/CodeGrader/Assessment-data/")
+
 (defun summarize-results (q-label results)
   "Aggregates FiveAM result objects into a summarized report."
 
@@ -13,7 +17,7 @@
                                (typep res 'fiveam::test-passed)) 
                              results)))
     (list :q-label q-label
-          :score (if (zerop total) 0 (* 100 (/ passed total)))
+          :score (if (zerop total) 0 (float (* 100   (/ passed total))))
           :stats (list :total total :passed passed :failed (length failures))
           ;; Map the failures into a clean feedback list
           :feedback (mapcar (lambda (f)
@@ -59,12 +63,12 @@
            (summary (summarize-results q-label raw-results)))
       
       ;; 3. Log or Print the outcome
-      (format t "~&Question ~A: ~D/~D passed (~A%)~%" 
+      (format t "~&Question ~A: ~D/~D passed (~A%)~%~{~a~^~%~}~%" 
               q-label 
               (getf (getf summary :stats) :passed)
               (getf (getf summary :stats) :total)
-              (getf summary :score))
-      
+              (getf summary :score)
+              (mapcar (lambda (x) (getf x :reason)) (getf summary :feedback)))
       summary)))
 
 (defun process-assessment-test-case-data (assessment-data-file q-labels-list)
@@ -105,7 +109,6 @@
      ;; 2. Perform the grading
       ;; grade-student uses (intern (format ...)) to find the runner
       ;; in the *package* where it is called.
-      
       (grade-student student-file q-label fname 'given))))
 
 (defun derive-assessment-data-file (solution-file-path)
@@ -114,23 +117,34 @@
          (assessment-data-file (format nil "~a~a.data" *assessment-data-folder* assessment-folder-name)))
     assessment-data-file))
 
-#|
+(defun critique-student-solution (sol)
+  (let ((output (with-output-to-string (*standard-output*)
+                  (lisp-critic:critique-file sol))))
+    ;; We check if the output contains a hint (usually starts with a paren or keyword)
+    ;; Adjust the search string based on what lisp-critic actually outputs
+    (format t "~V@{~A~:*~}" 70 "+")
+    (format t "~%### Style Feedback~%Below is your 'pretty-printed' code. ")
+    (if (search "----" output :test #'char-equal)
+        (format t "The suggestions below can help you ~%write more 'Lisp-y' solutions:~%~%~A" output)
+        (format t "No idiomatic improvements suggested.~%~%~A" output))))
+
+
 (defun chk-my-solution (a#)
   "Checks a student's solution file against examples.
    a#: String identifying the solution file, e.g., '~/lab01/q1.lisp'."
-  (unless (probe-assessment-file a#)
+  (unless (probe-file a#)
     (error "~%!!!!!!!! Error: You saved your file in the wrong folder. Please save it in the specified folder. !!!!!!!!"))
   (let* ((assessment-data-file (derive-assessment-data-file a#))
          (q-label (intern (string-upcase (pathname-name a#)) :keyword))
-         (assessment-data (process-assessment-data assessment-data-file (list q-label)))
-         (current-pckg *package*))
-    (unwind-protect
-         (format t "~V@{~A~:*~}~%Lisp generated load/compile messages:" *separators* "+")         
-      (let* ((eval (load-and-evaluate-solution a# question-name assessment-data))
-             (error-type (second eval)))
-        (handle-evaluation-output error-type eval question-name)
-        (critique-student-solution a#))
-      (setf *package* current-pckg)))
-  t)
-
-|#
+         (assessment-test-case-data (process-assessment-test-case-data assessment-data-file (list q-label)))
+         (q-testcase-data (rest (assoc q-label assessment-test-case-data)))
+         (fname (getf q-testcase-data :asked-function))
+         (given-testcases-metadata (getf q-testcase-data :given)))
+    (with-package :sandbox
+      ;; EVAL compiles/defines the test and runner in this package
+      (eval given-testcases-metadata)
+      ;; 2. Perform the grading
+      ;; grade-student uses (intern (format ...)) to find the runner
+      ;; in the *package* where it is called.
+      (grade-student a# q-label fname 'given))
+    (critique-student-solution a#)))

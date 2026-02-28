@@ -285,8 +285,11 @@
                     (values
                      (if (getf (compiler-state-env state) :in-hdn-p)
                          ""
-                         (format nil "~%#+BEGIN_SRC lisp~%The expression below~%~%  ~s~%~%should evaluate to~%~%  ~s~%#+END_SRC~%" 
-                                 call expected))
+                         (let ((*package* (find-package :sandbox)))
+                           (format nil "~%#+BEGIN_SRC lisp~%The expression below~%~%  ~s~%~%should evaluate to~%~%  ~s~%#+END_SRC~%" 
+                                   call (if (and (consp expected) (eq  (first expected) 'quote))
+                                            (second expected)
+                                            expected))))
                      state))))
 
   (register-tag table :sols-tag

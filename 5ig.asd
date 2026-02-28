@@ -7,7 +7,7 @@
   :license  "Specify license here"
   :version "0.0.1"
   :serial t
-  :depends-on (:fiveam)
+  :depends-on (:fiveam :lisp-critic)
   :components ((:file "package")
                (:file "utils")
                (:file "sxm")
