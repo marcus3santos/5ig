@@ -49,7 +49,7 @@
 
 (defun generate-fiveam-test-with-cleanup (kind q-label fname body)
   "Generates a namespaced FiveAM test and a cleanup runner for a specific question."
-  (let* ((target-sym (intern (string fname) :sandbox))
+  (let* ((target-sym (intern (format nil "~A" fname) :sandbox))
          (test-name   (intern (format nil "~A-~A-~A-TEST" q-label fname kind) :sandbox))
          (runner-name (intern (format nil "RUN-~A" test-name) :sandbox))
          ;; Filter and normalize checks from the body

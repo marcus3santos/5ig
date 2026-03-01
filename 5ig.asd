@@ -9,6 +9,7 @@
   :serial t
   :depends-on (:fiveam :lisp-critic)
   :components ((:file "package")
+               (:file "sandbox-utils")
                (:file "utils")
                (:file "sxm")
                (:file "grader")

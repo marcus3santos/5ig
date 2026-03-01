@@ -6,25 +6,6 @@
 
 (defparameter *assessment-data-folder* "~/quicklisp/local-projects/CodeGrader/Assessment-data/")
 
-(defun summarize-results (q-label results)
-  "Aggregates FiveAM result objects into a summarized report."
-
-  (let ((total (length results))
-        (passed (count-if (lambda (res) 
-                            (typep res 'fiveam::test-passed)) 
-                          results))
-        (failures (remove-if (lambda (res) 
-                               (typep res 'fiveam::test-passed)) 
-                             results)))
-    (list :q-label q-label
-          :score (if (zerop total) 0 (float (* 100   (/ passed total))))
-          :stats (list :total total :passed passed :failed (length failures))
-          ;; Map the failures into a clean feedback list
-          :feedback (mapcar (lambda (f)
-                              (list :expr (fiveam::test-expr f)
-                                    :reason (fiveam::reason f)
-                                    :type (type-of f)))
-                            failures))))
 
 (defun q-label-p (label)
   (let ((str (symbol-name label)))
@@ -34,8 +15,9 @@
 (defun get-assessment-test-case-data (assessment-data-file)
   "Return assoc list (:qi <tagged-data>) where :qi is a question label and
    <tagged-data> are forms of the kind (:tag <data>)"
-  (let* ((assessment-data (with-open-file (in assessment-data-file)
-                            (read in))))
+  (let* ((assessment-data (with-package :sandbox
+                            (with-open-file (in assessment-data-file)
+                              (read in)))))
     (mapcar (lambda (qdata)
               `(,(first qdata)
                 ,@(remove-if-not (lambda (data)
@@ -47,29 +29,7 @@
             (remove-if-not  #'q-label-p  assessment-data :key #'first)) ))
 
 
-(defun grade-student (student-file q-label fname kind)
-  "Loads the student's program file in the sandbox,
-   depending on KIND runs the given or hidden fiveam test cases, 
-   and collects the results"
-  (let ((runner-name (intern (format nil "RUN-~A-~A-~A-TEST" q-label fname kind))))
-    ;; 1. Load student code
-    
-    (handler-case (with-package :sandbox
-                    (load student-file))
-      (error (c) (return-from grade-student 
-                   (list :q-label q-label :error (format nil "Load Error: ~A" c)))))
-    
-    ;; 2. Execute the pre-compiled runner
-    (let* ((raw-results (funcall runner-name))
-           (summary (summarize-results q-label raw-results)))
-      ;; 3. Log or Print the outcome
-      (format t "~&Question ~A: ~D/~D passed (~A%)~%~{~a~^~%~}~%" 
-              q-label 
-              (getf (getf summary :stats) :passed)
-              (getf (getf summary :stats) :total)
-              (getf summary :score)
-              (mapcar (lambda (x) (getf x :reason)) (getf summary :feedback)))
-      summary)))
+
 
 (defun process-assessment-test-case-data (assessment-data-file q-labels-list)
   "Extracts and processes programming assessment data for a specific set of questions.
@@ -100,10 +60,11 @@
                                         :forbidden-symbols (rest (assoc :forbidden-symbols (rest (assoc q assessment-data))))
                                         :given (second (assoc :given (rest (assoc q assessment-data))))
                                         :hidden (second (assoc :hidden (rest (assoc q assessment-data))))))
-                              q-labels-list)))
+                                q-labels-list)))
     (mapc (lambda (d)
             (export (list (intern (symbol-name (getf (rest d) :asked-function)) :sandbox)) :sandbox))
           testcase-data)
+
     testcase-data))
 
 (defun reset-sandbox-package ()

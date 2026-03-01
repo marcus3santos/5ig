@@ -1,13 +1,16 @@
 ;;;; package.lisp
 (in-package :cl-user)
 
+(defpackage #:sandbox-utils
+  (:use #:cl)
+  (:export #:is-safe))
+
 (defpackage #:sandbox
-  (:use #:cl #:fiveam))
+  (:use #:cl #:fiveam #:sandbox-utils))
 
 (defpackage #:utils
   (:use #:cl)
-  (:export #:is-safe
-           #:read-form-and-intern
+  (:export #:read-form-and-intern
            #:with-package
            #:add-prefix-to-symbol-in-form))
 
@@ -19,9 +22,9 @@
   (:export #:gen-exam-files))
 
 (defpackage #:grader
-  (:use #:cl)
-  (:export #:used-forbidden-function-p))
+  (:use #:cl #:utils)
+  (:export #:used-forbidden-function-p #:grade-student))
 
 (defpackage #:5ig
-  (:use #:cl #:sxm-compiler #:utils)
+  (:use #:cl #:sxm-compiler #:utils #:grader)
   (:export #:gen-exam-files))

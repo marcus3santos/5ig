@@ -73,3 +73,48 @@
       (scan q-func-name '() '())
       forbidden-found)))
 
+
+(defun summarize-results (q-label results)
+  "Aggregates FiveAM result objects into a summarized report."
+
+  (let ((total (length results))
+        (passed (count-if (lambda (res) 
+                            (typep res 'fiveam::test-passed)) 
+                          results))
+        (failures (remove-if (lambda (res) 
+                               (typep res 'fiveam::test-passed)) 
+                             results)))
+    (list :q-label q-label
+          :score (if (zerop total) 0 (float (* 100   (/ passed total))))
+          :stats (list :total total :passed passed :failed (length failures))
+          ;; Map the failures into a clean feedback list
+          :feedback (mapcar (lambda (f)
+                              (list :expr (fiveam::test-expr f)
+                                    :reason (fiveam::reason f)
+                                    :type (type-of f)))
+                            failures))))
+
+(defun grade-student (student-file q-label fname kind)
+  "Loads the student's program file in the sandbox,
+   depending on KIND runs the given or hidden fiveam test cases, 
+   and collects the results"
+  (let ((runner-name (intern (format nil "RUN-~A-~A-~A-TEST" q-label fname kind) :sandbox)))
+    ;; 1. Load student code
+    
+    (handler-case (with-package :sandbox
+                    (load student-file))
+      (error (c) (return-from grade-student 
+                   (list :q-label q-label :error (format nil "Load Error: ~A" c)))))
+    
+    ;; 2. Execute the pre-compiled runner
+    (let* ((raw-results (funcall runner-name))
+           (summary (summarize-results q-label raw-results)))
+      ;; 3. Log or Print the outcome
+
+      (format t "~%### RESULTS~%### Question ~A: ~D/~D passed (~A%)~%~{~a~^~%~}~%" 
+              q-label 
+              (getf (getf summary :stats) :passed)
+              (getf (getf summary :stats) :total)
+              (getf summary :score)
+              (mapcar (lambda (x) (getf x :reason)) (getf summary :feedback)))
+      summary)))
