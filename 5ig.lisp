@@ -41,7 +41,8 @@
                 ,@(remove-if-not (lambda (data)
                                    (or (eq data :hidden)
                                        (eq data :given)
-                                       (eq data :asked-function)))
+                                       (eq data :asked-function)
+                                       (eq data :forbidden-symbols)))
                                  (rest qdata) :key #'first)))
             (remove-if-not  #'q-label-p  assessment-data :key #'first)) ))
 
@@ -57,11 +58,10 @@
                     (load student-file))
       (error (c) (return-from grade-student 
                    (list :q-label q-label :error (format nil "Load Error: ~A" c)))))
-
+    
     ;; 2. Execute the pre-compiled runner
     (let* ((raw-results (funcall runner-name))
            (summary (summarize-results q-label raw-results)))
-      
       ;; 3. Log or Print the outcome
       (format t "~&Question ~A: ~D/~D passed (~A%)~%~{~a~^~%~}~%" 
               q-label 
@@ -72,12 +72,32 @@
       summary)))
 
 (defun process-assessment-test-case-data (assessment-data-file q-labels-list)
-  "Returns an a-list ((q given hidden) ...) containing the processed given and hidden 
-   test-cases code"
+  "Extracts and processes programming assessment data for a specific set of questions.
+
+   This function retrieves test case data from ASSESSMENT-DATA-FILE and filters it 
+   based on the provided Q-LABELS-LIST. For each question label in the list, it 
+   assembles a property list containing the function name, the forbidden symbols.
+   given test cases, and hidden test cases.
+
+   Additionally, it performs a side effect: it interns the 'asked-function' symbols 
+   into the :SANDBOX package and makes them accessible to packages that use it.
+
+   ### Arguments:
+   * ASSESSMENT-DATA-FILE: A file path or designator containing the assessment 
+     definitions (passed to 'get-assessment-test-case-data').
+   * Q-LABELS-LIST: A list of keys (labels) corresponding to the questions to 
+     be processed.
+
+   ### Returns:
+   * An association list where each element is of the form:
+     (LABEL :ASKED-FUNCTION function-symbol 
+            :FORBIDDEN-SYMBOLS (:PENALTY p :SYMBOLS (symbs))
+            :GIVEN (test-cases) :HIDDEN (test-cases))"
   (let* ((assessment-data (get-assessment-test-case-data assessment-data-file))
          (testcase-data (mapcar (lambda (q)
                                   (list q
                                         :asked-function (second (assoc :asked-function (rest (assoc q assessment-data))))
+                                        :forbidden-symbols (rest (assoc :forbidden-symbols (rest (assoc q assessment-data))))
                                         :given (second (assoc :given (rest (assoc q assessment-data))))
                                         :hidden (second (assoc :hidden (rest (assoc q assessment-data))))))
                               q-labels-list)))
@@ -125,7 +145,7 @@
     (format t "~V@{~A~:*~}" 70 "+")
     (format t "~%### Style Feedback~%Below is your 'pretty-printed' code. ")
     (if (search "----" output :test #'char-equal)
-        (format t "The suggestions below can help you ~%write more 'Lisp-y' solutions:~%~%~A" output)
+        (format t "The suggestions below your code can ~%help you write more 'Lisp-y' solutions:~%~%~A" output)
         (format t "No idiomatic improvements suggested.~%~%~A" output))))
 
 
@@ -139,6 +159,8 @@
          (assessment-test-case-data (process-assessment-test-case-data assessment-data-file (list q-label)))
          (q-testcase-data (rest (assoc q-label assessment-test-case-data)))
          (fname (getf q-testcase-data :asked-function))
+         (forbidden-penalty (getf (getf q-testcase-data :forbidden-symbols) :penalty))
+         (forbidden-symbs (getf (getf q-testcase-data :forbidden-symbols) :symbols))
          (given-testcases-metadata (getf q-testcase-data :given)))
     (with-package :sandbox
       ;; EVAL compiles/defines the test and runner in this package

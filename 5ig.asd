@@ -11,4 +11,5 @@
   :components ((:file "package")
                (:file "utils")
                (:file "sxm")
+               (:file "grader")
                (:file "5ig")))

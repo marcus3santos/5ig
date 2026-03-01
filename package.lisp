@@ -18,6 +18,10 @@
         #:fiveam)
   (:export #:gen-exam-files))
 
+(defpackage #:grader
+  (:use #:cl)
+  (:export #:used-forbidden-function-p))
+
 (defpackage #:5ig
   (:use #:cl #:sxm-compiler #:utils)
   (:export #:gen-exam-files))

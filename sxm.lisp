@@ -106,13 +106,13 @@
                            (cur-i-num (getf (compiler-state-env state) :i-num))
                            (cur-level (getf (compiler-state-env state) :level)))
                       (incf (getf (compiler-state-env state) :level))
-                      (setf (getf (compiler-state-env state) :i-num) 0)
-                      (setf (getf (compiler-state-env state) :ol-p) nil)
+                      (setf (getf (compiler-state-env state) :i-num) 0
+                            (getf (compiler-state-env state) :ol-p) nil)
                       (multiple-value-bind (body-text st)
                           (compile-nodes body state)
-                        (setf (getf (compiler-state-env state) :i-num) cur-i-num)
-                        (setf (getf (compiler-state-env state) :level) cur-level)
-                        (setf (getf (compiler-state-env state) :ol-p) ol-flag)
+                        (setf (getf (compiler-state-env state) :i-num) cur-i-num
+                              (getf (compiler-state-env state) :level) cur-level
+                              (getf (compiler-state-env state) :ol-p) ol-flag)
                         (values (format nil "~a" body-text) st))))))
 
   (register-tag table :ol-tag
@@ -122,13 +122,13 @@
                            (cur-i-num (getf (compiler-state-env state) :i-num))
                            (cur-level (getf (compiler-state-env state) :level)))
                       (incf (getf (compiler-state-env state) :level))
-                      (setf (getf (compiler-state-env state) :i-num) 0)
-                      (setf (getf (compiler-state-env state) :ol-p) t)
+                      (setf (getf (compiler-state-env state) :i-num) 0
+                            (getf (compiler-state-env state) :ol-p) t)
                       (multiple-value-bind (body-text st)
                           (compile-nodes body state)
-                        (setf (getf (compiler-state-env state) :i-num) cur-i-num)
-                        (setf (getf (compiler-state-env state) :level) cur-level)
-                        (setf (getf (compiler-state-env state) :ol-p) ol-flag)
+                        (setf (getf (compiler-state-env state) :i-num) cur-i-num
+                              (getf (compiler-state-env state) :level) cur-level
+                              (getf (compiler-state-env state) :ol-p) ol-flag)
                         (values (format nil "~a" body-text) st))))))
 
   (register-tag table :li-tag
@@ -237,9 +237,8 @@
                            (q-data (gethash latest-q metadata))
                            (fname (getf props :function))
                            (fnames-data (gethash :fnames metadata)))
-                      (setf (gethash latest-q metadata)
-                            (cons (list :asked-function fname)
-                                  q-data))
+                      (setf (gethash latest-q metadata) (cons (list :asked-function fname)
+                                                              q-data))
                       (unless (member fname fnames-data)
                         (setf (gethash :fnames metadata) (cons fname fnames-data)))
                       (multiple-value-bind (body-text st)
