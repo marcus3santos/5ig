@@ -1,78 +1,46 @@
 (in-package :grader)
 
-(defun used-forbidden-function-p (q-func-name forbidden-functions student-forms)
-  "Takes a function name Q-FUNC-NAME (a symbol), a list of function names FORBIDDEN-FUNCTIONS,
-   and a list STUDENT-FORMS containing the forms present in the student's lisp program file. 
-  Returns FUNC if Q-FUNC-NAME directly or indirectly calls FUNC and FUNC is in FORBIDDEN-FUNCTIONS."
-  (let ((function-table (make-hash-table))
-        (global-identifier-table (make-hash-table))
-        (forbidden-found))
-    ;; Build function and global identifier tables: name → body
-    (dolist (form student-forms)
-      (let ((form-wth-uniq-vars (gensymify form)))
-        (cond ((and (consp form-wth-uniq-vars) (eq (first form-wth-uniq-vars) 'defun))
-               (setf (gethash (second form-wth-uniq-vars) function-table)
-                     (cdddr form-wth-uniq-vars)))
-              ((and (consp form-wth-uniq-vars)
-                    (or (eq (first form-wth-uniq-vars) 'defvar)
-                        (eq (first form-wth-uniq-vars) 'defparameter)
-                        (eq (first form-wth-uniq-vars) 'defconstant)))
-               (setf (gethash (second form-wth-uniq-vars) global-identifier-table)
-                     (cddr form-wth-uniq-vars))))))
-    ;; Depth-first search
-    (labels ((function-designator->symbol (fd)
-               "Return a symbol if FD statically names a function, else NIL."
-               (cond
-                 ;; #'foo
-                 ((and (consp fd) (eq (car fd) 'function))
-                  (cadr fd))
-                 ;; 'foo
-                 ((and (consp fd) (eq (car fd) 'quote))
-                  (cadr fd))
-                 ;; bare symbol (e.g., (funcall foo ...))
-                 ((symbolp fd)
-                  fd)
-                 (t nil)))
-             (scan (aname fvisited gvvisited)
-               (let ((name (function-designator->symbol aname)))
-                 (cond
-                   ;; direct forbidden call?
-                   ((member name forbidden-functions)
-                    (setf forbidden-found (list q-func-name name))
-                    name)
-                   ;; already visited? avoid infinite loops
-                   ((or (member name fvisited)
-                        (member name gvvisited)) ;; case of a weird naming cycle
-                    nil)
-                   ;; otherwise look at its body
-                   (t
-                    (let* ((fbody (gethash name function-table))
-                           (fvisited (cons name fvisited))
-                           (form (gethash name global-identifier-table))
-                           (gvvisited (cons name gvvisited)))
-                      (or (when fbody
-                            (calls-forbidden-p fbody fvisited gvvisited))
-                          (when form
-                            (calls-forbidden-p form fvisited gvvisited))))))))
-             (calls-forbidden-p (forms fvisited gvvisited)
-               (cond
-                 ((null forms)
-                  nil)
-                 ;; Direct call: (foo ....)
-                 ((and (symbolp (first forms))
-                       (scan (first forms) fvisited gvvisited))
-                  (first forms))
-                 ;; recur through subforms and rest
-                 ((consp (first forms))
-                  (or (calls-forbidden-p (first forms) fvisited gvvisited)
-                      (calls-forbidden-p (rest forms) fvisited gvvisited)))
-                 ((atom (first forms))
-                  (calls-forbidden-p (rest forms) fvisited gvvisited))
-                 (t nil))))
-      ;; Start with q-func-name
-      (scan q-func-name '() '())
-      forbidden-found)))
+(defun generate-grading-report (target-func program forbidden-list)
+  "Produces a human-readable string summarizing the code structure and 
+any forbidden function violations."
+  (let* ((violations (check-assessment-violations target-func program forbidden-list))
+         (graph (get-call-graph target-func program))
+         (report-stream (make-string-output-stream)))
+    
+    (format report-stream "--- Assessment Analysis for ~A ---~%~%" target-func)
+    
+    ;; 1. Structure Overview
+    (format report-stream "Function Call Structure:~%")
+    (dolist (node (reverse graph))
+      (format report-stream "  [~A] calls -> ~{~A~^, ~}~%" 
+              (car node) (or (second node) '("no functions"))))
+    
+    (format report-stream "~%--- Violation Check ---~%")
+    
+    ;; 2. Violation Reporting
+    (if (null violations)
+        (format report-stream "SUCCESS: No forbidden functions detected.~%")
+        (progn
+          (format report-stream "FAILED: Forbidden functions found.~%")
+          (dolist (v violations)
+            (format report-stream "  - In function '~A': Used forbidden (~{~A~^, ~})~%" 
+                    (car v) (cdr v)))
+          (format report-stream "~%Note: Please rewrite the logic without using these helpers.")))
+    
+    (get-output-stream-string report-stream)))
 
+(defun check-assessment-violations (target-func program forbidden-list)
+  "Analyzes the program for forbidden function calls, even if nested 
+in helper functions. Returns a list of (FUNCTION . VIOLATIONS)."
+  (let* ((graph (get-call-graph target-func program))
+         (report '()))
+    (dolist (node graph)
+      (let* ((func-name (car node))
+             (calls (second node))
+             (violations (intersection calls forbidden-list)))
+        (when violations
+          (push (cons func-name violations) report))))
+    report))
 
 (defun summarize-results (q-label results)
   "Aggregates FiveAM result objects into a summarized report."
@@ -118,3 +86,4 @@
               (getf summary :score)
               (mapcar (lambda (x) (getf x :reason)) (getf summary :feedback)))
       summary)))
+
