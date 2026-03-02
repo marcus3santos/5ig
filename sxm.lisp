@@ -62,7 +62,7 @@
          ,@(loop for check in checks
                  for call = (second check)
                  for expected = (third check)
-                 collect `(utils:is-safe (equalp ,call ,expected) :timeout 2)))
+                 collect `(sandbox-utils:is-safe (equalp ,call ,expected) :timeout 2)))
 
        ;; 2. Define the Runner with Unwind-Protect
        (defun ,runner-name ()

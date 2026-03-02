@@ -98,36 +98,56 @@
          (assessment-data-file (format nil "~a~a.data" *assessment-data-folder* assessment-folder-name)))
     assessment-data-file))
 
-(defun critique-student-solution (sol)
-  (let ((output (with-output-to-string (*standard-output*)
-                  (lisp-critic:critique-file sol))))
-    ;; We check if the output contains a hint (usually starts with a paren or keyword)
-    ;; Adjust the search string based on what lisp-critic actually outputs
-    (format t "~V@{~A~:*~}" 70 "+")
-    (format t "~%### Style Feedback~%Below is your 'pretty-printed' code. ")
-    (if (search "----" output :test #'char-equal)
-        (format t "The suggestions below your code can ~%help you write more 'Lisp-y' solutions:~%~%~A" output)
-        (format t "No idiomatic improvements suggested.~%~%~A" output))))
 
 
 (defun chk-my-solution (a#)
-  "Checks a student's solution file against examples.
-   a#: String identifying the solution file, e.g., '~/lab01/q1.lisp'."
+  "Checks a student's solution file. Performs safe reading, static analysis,
+   and applies percentage penalties based on the :penalty metadata value."
   (unless (probe-file a#)
-    (error "~%!!!!!!!! Error: You saved your file in the wrong folder. Please save it in the specified folder. !!!!!!!!"))
+    (error "~%!!!!!!!! Error: File not found. !!!!!!!!"))
+  
   (let* ((assessment-data-file (derive-assessment-data-file a#))
          (q-label (intern (string-upcase (pathname-name a#)) :keyword))
          (assessment-test-case-data (process-assessment-test-case-data assessment-data-file (list q-label)))
          (q-testcase-data (rest (assoc q-label assessment-test-case-data)))
          (fname (getf q-testcase-data :asked-function))
-         (forbidden-penalty (getf (getf q-testcase-data :forbidden-symbols) :penalty))
-         (forbidden-symbs (getf (getf q-testcase-data :forbidden-symbols) :symbols))
+         ;; Forbidden Metadata
+         (forbidden-info (getf q-testcase-data :forbidden-symbols))
+         (forbidden-penalty (getf forbidden-info :penalty)) ;; e.g., 80 for 80% deduction
+         (forbidden-symbs (getf forbidden-info :symbols))
          (given-testcases-metadata (getf q-testcase-data :given)))
-    (with-package :sandbox
-      ;; EVAL compiles/defines the test and runner in this package
-      (eval given-testcases-metadata)
-      ;; 2. Perform the grading
-      ;; grade-student uses (intern (format ...)) to find the runner
-      ;; in the *package* where it is called.
-      (grade-student a# q-label fname 'given))
-    (critique-student-solution a#)))
+
+    ;; 1. Safe Read the student code
+    (multiple-value-bind (student-program error-msg) (safe-read-student-code a#)
+      (if (not student-program)
+          (format t "Submission rejected: ~A" error-msg)
+          (let* ((graph (get-call-graph fname student-program))
+                 (violations (check-assessment-violations fname student-program forbidden-symbs)))
+            ;; Provide immediate structural feedback
+            (format t "~%### Question ~A~%~A~%" (subseq (symbol-name q-label) 1) (generate-forbidden-function-violation-report fname graph violations))
+
+            ;; 4. Functional Testing
+            (let ((summary (with-package :sandbox
+                             ; Mute redefinition warnings during EVAL
+                             (handler-bind ((style-warning #'muffle-warning)
+                                            (warning #'muffle-warning))
+                               (eval given-testcases-metadata))
+                             (grade-student a# q-label fname 'given))))
+              
+              ;; 5. Apply Percentage Penalty logic
+              ;; If penalty is 80, student keeps (100 - 80) = 20% of their score.
+              (format t "~%--- Calculating Your Score ---~%")
+              (if (and violations summary)
+                  (let* ((original-score (getf summary :score))
+                         (multiplier (/ (- 100 forbidden-penalty) 100))
+                         (final-score (* original-score multiplier)))
+                    (setf (getf summary :score) (float final-score))
+                    (format t "~%!!! PENALTY APPLIED !!!~%Original Score: ~F% || Adjusted Score: ~F% (-~D% Penalty)~%" 
+                            original-score (getf summary :score) forbidden-penalty))
+                  (format t "~%Your Score: ~F%~%"  (getf summary :score) ))
+              
+              ;; 6. Style Analysis
+              (critique-student-solution a#)
+              summary))))))
+
+

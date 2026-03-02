@@ -32,7 +32,6 @@ malicious reader macros or resource exhaustion."
   `(let ((*package* (find-package ,package)))
      ,@body))
 
-
 (defun get-call-graph (target-func program)
   (let ((seen '())
         (graph '())
@@ -50,51 +49,38 @@ malicious reader macros or resource exhaustion."
              (labels 
                  ((scan (item local-env)
                     (cond 
-                      ((null item) nil)
-                      ((atom item) nil)
+                      ((atom item) nil) ;; Atoms (symbols like A, B) are never calls
                       ((consp item)
                        (let ((head (car item)))
                          (cond
                            ((eq head 'quote) nil)
 
-                           ;; Handle 'FUNCTION' / #': Check if shadowed
                            ((eq head 'function)
                             (let ((fn-name (cadr item)))
                               (when (and (symbolp fn-name) (not (member fn-name local-env)))
                                 (pushnew fn-name calls))))
 
-                           ;; NEW: Handle FUNCALL, APPLY, and Mapping functions
-                           ;; We look at the first argument to these functions
-                           ((member head '(funcall apply mapcar mapc mapcan maplist))
-                            (pushnew head calls)
-                            (let ((arg (second item)))
-                              (cond 
-                                ;; Case: (funcall 'reverse ...)
-                                ((and (consp arg) (eq (first arg) 'quote))
-                                 (pushnew (second arg) calls))
-                                ;; Case: (funcall #'reverse ...)
-                                ((and (consp arg) (eq (first arg) 'function))
-                                 (pushnew (second arg) calls)))
-                            ;; Continue scanning arguments for other calls
-                            (mapc (lambda (x) (scan x local-env)) (cdr item)))
-
                            ((member head '(flet labels))
                             (let* ((definitions (second item))
                                    (new-locals (mapcar #'car definitions))
                                    (extended-env (append new-locals local-env))
-                                   (body (cddr item)))
-                              (if (eq head 'labels)
-                                  (progn (dolist (d definitions) (scan (cdr d) extended-env))
-                                         (scan body extended-env))
-                                  (progn (dolist (d definitions) (scan (cdr d) local-env))
-                                         (scan body extended-env)))))
+                                   (inner-body (cddr item)))
+                              ;; Scan the bodies of the local functions
+                              (dolist (d definitions) 
+                                (scan (cddr d) (if (eq head 'labels) extended-env local-env)))
+                              ;; Scan the main body of the flet/labels
+                              (scan inner-body extended-env)))
 
+                           ;; If the head is a symbol, it's a potential function call
                            ((and (symbolp head) 
                                  (not (member head ignored-symbols))
                                  (not (member head local-env)))
                             (pushnew head calls)
+                            ;; Now scan the arguments (the rest of the list)
                             (mapc (lambda (x) (scan x local-env)) (cdr item)))
 
+                           ;; If the head is another list (like a lambda or a nested call)
+                           ;; scan the head AND the rest of the list
                            (t (mapc (lambda (x) (scan x local-env)) item))))))))
                (scan body '())
                calls)))
@@ -111,3 +97,7 @@ malicious reader macros or resource exhaustion."
 
       (build-graph target-func)
       graph)))
+
+
+
+
