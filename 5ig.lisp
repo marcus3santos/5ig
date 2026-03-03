@@ -4,7 +4,7 @@
 
 ;; Folder where assessment metadata files should be store
 
-(defparameter *assessment-data-folder* "~/quicklisp/local-projects/CodeGrader/Assessment-data/")
+(defparameter *assessment-data-folder* (make-pathname :defaults (uiop:ensure-directory-pathname "~/quicklisp/local-projects/CodeGrader/Assessment-data/")))
 
 
 (defun q-label-p (label)
@@ -151,3 +151,13 @@
               summary))))))
 
 
+(defun orchestrate (assessment-folder assessment-name)
+  (let* ((safe-path (uiop:ensure-directory-pathname assessment-folder)) ;; ensures path ends with /
+         (student-lisp-program-files (directory (make-pathname :name :wild
+                                                              :type "lisp"
+                                                              :defaults safe-path)))
+         (assessment-data-file (make-pathname :name assessment-name
+                                              :type "data"
+                                              :defaults safe-path)))
+    student-lisp-program-files
+    assessment-data-file))
