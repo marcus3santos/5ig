@@ -4,7 +4,8 @@
 
 ;; Folder where assessment metadata files should be store
 
-(defparameter *assessment-data-folder* (make-pathname :defaults (uiop:ensure-directory-pathname "~/quicklisp/local-projects/CodeGrader/Assessment-data/")))
+(defparameter *assessment-data-folder* (merge-pathnames (make-pathname :directory '(:relative "quicklisp" "local-projects" "5ig" "Assessment-data"))
+                                                        (user-homedir-pathname)))
 
 
 (defun q-label-p (label)
@@ -98,6 +99,16 @@
          (assessment-data-file (format nil "~a~a.data" *assessment-data-folder* assessment-folder-name)))
     assessment-data-file))
 
+(defun compile-test-cases-and-runner (test-cases-and-runner)
+  "Compiles the fiveam test and its runner. The argument is a progn 
+   containing a fiveam test and its checks and the defun for the 
+   runner that runs the test and clears up the name space of the 
+   tested functions."
+  (with-package :sandbox
+    ;; Mute redefinition warnings during EVAL
+    (handler-bind ((style-warning #'muffle-warning)
+                   (warning #'muffle-warning))
+      (eval test-cases-and-runner))))
 
 
 (defun chk-my-solution (a#)
@@ -117,6 +128,8 @@
          (forbidden-symbs (getf forbidden-info :symbols))
          (given-testcases-metadata (getf q-testcase-data :given)))
 
+    ;; 0. Compiles test cases and the test cases runner
+    (compile-test-cases-and-runner given-testcases-metadata)
     ;; 1. Safe Read the student code
     (multiple-value-bind (student-program error-msg) (safe-read-student-code a#)
       (if (not student-program)
@@ -128,10 +141,6 @@
 
             ;; 4. Functional Testing
             (let ((summary (with-package :sandbox
-                             ; Mute redefinition warnings during EVAL
-                             (handler-bind ((style-warning #'muffle-warning)
-                                            (warning #'muffle-warning))
-                               (eval given-testcases-metadata))
                              (grade-student a# q-label fname 'given))))
               
               ;; 5. Apply Percentage Penalty logic
@@ -156,8 +165,8 @@
          (student-lisp-program-files (directory (make-pathname :name :wild
                                                               :type "lisp"
                                                               :defaults safe-path)))
-         (assessment-data-file (make-pathname :name assessment-name
-                                              :type "data"
-                                              :defaults safe-path)))
+         (assessment-data-file (merge-pathnames (make-pathname :name assessment-name
+                                                               :type "data")
+                                                *assessment-data-folder*)))
     student-lisp-program-files
     assessment-data-file))
