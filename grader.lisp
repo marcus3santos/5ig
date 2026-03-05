@@ -82,7 +82,6 @@ in helper functions. Returns a list of (FUNCTION . VIOLATIONS)."
                    (list :q-label q-label :error (format nil "Load Error: ~A" c)))))
     
     ;; 2. Execute the pre-compiled runner
-    (format t "~%--- Running Test Cases ---~%")
     (let* ((raw-results (funcall runner-name))
            (summary (summarize-results q-label raw-results)))
       ;; 3. Log or Print the outcome
