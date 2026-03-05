@@ -110,7 +110,10 @@
                    (warning #'muffle-warning))
       (eval test-cases-and-runner))))
 
-(defun orchetrate-student-grading (student-solution-file question-testcase-data testcase-type)
+(defun orchetrate-grading-of-one-solution (student-solution-file question-testcase-data testcase-type)
+  "Orchestrates the grading of one solution file for a given question. 
+   Assumes the test cases and test cases runner have already been loaded.
+   The test case type is either :given or :hidden."
   (let* ((question-label (first question-testcase-data))
          (fname (getf question-testcase-data :asked-function))
          (forbidden-info (getf question-testcase-data :forbidden-symbols))
