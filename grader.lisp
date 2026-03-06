@@ -22,7 +22,7 @@
           (dolist (v violations)
             (format report-stream "  - In function '~A': Used forbidden (~{~A~^, ~})~%" 
                     (car v) (cdr v)))
-          (format report-stream "~%Note: Please rewrite the logic without using these helpers.")))
+          (format report-stream "~%Note: Rewrite the logic without using this/these helper(s).")))
     
     (get-output-stream-string report-stream)))
 
@@ -84,12 +84,5 @@ in helper functions. Returns a list of (FUNCTION . VIOLATIONS)."
     ;; 2. Execute the pre-compiled runner
     (let* ((raw-results (funcall runner-name))
            (summary (summarize-results q-label raw-results)))
-      ;; 3. Log or Print the outcome
-
-      (format t "~%~%--- Results ---~%~%~D out of ~D tests passed (~A%)~%~{~a~^~%~}" 
-              (getf (getf summary :stats) :passed)
-              (getf (getf summary :stats) :total)
-              (getf summary :score)
-              (mapcar (lambda (x) (getf x :reason)) (getf summary :feedback)))
       summary)))
 

@@ -110,35 +110,63 @@
                    (warning #'muffle-warning))
       (eval test-cases-and-runner))))
 
-(defun orchetrate-grading-of-one-solution (student-solution-file question-testcase-metadata testcase-type &optional (stream t))
-  "Orchestrates the grading of one solution file for a given question. 
-   Assumes the test cases and test cases runner have already been loaded.
-   The test case type is either :given or :hidden."
-  (let* ((question-label (first question-testcase-metadata))
-         (question-testcase-data (rest question-testcase-metadata))
-         (fname (getf question-testcase-data :asked-function))
-         (forbidden-info (getf question-testcase-data :forbidden-symbols))
-         (forbidden-penalty (getf forbidden-info :penalty)) 
-         (forbidden-symbs (getf forbidden-info :symbols))
-         ;; Functional testing
-         (summary (with-package :sandbox
-                    (grade-student student-solution-file question-label fname testcase-type))))
-    (format stream "~%### Question ~A~%" (subseq (symbol-name question-label) 1))
-    (let* ((student-program (safe-read-student-code student-solution-file))
-           (graph (get-call-graph fname student-program))
-           (violations (check-assessment-violations fname student-program forbidden-symbs)))
-      (format stream "~%~A~%" (generate-forbidden-function-violation-report fname graph violations))
-      (if (and violations (> (getf summary :score) 0))
-          (let* ((original-score (getf summary :score))
-                 (multiplier (/ (- 100 forbidden-penalty) 100))
-                 (final-score (* original-score multiplier)))
-            (setf (getf summary :score) (float final-score))
-            (format stream "~%!!! PENALTY APPLIED !!!~%Original Score: ~F% || Adjusted Score: ~F% (-~D% Penalty)~%" 
-                    original-score (getf summary :score) forbidden-penalty))
-          (format stream "~%~F%~%"  (getf summary :score))))
-    (critique-student-solution student-solution-file)
+(defun orchestrate-grading-of-one-solution (student-file metadata testcase-type &optional (stream t))
+  "Orchestrates the grading of one solution file for a given question."
+  (let* ((question-label (first metadata))
+         (tc-data        (rest metadata))
+         (fname          (getf tc-data :asked-function))
+         ;; 1. Execute Functional Testing
+         (summary        (with-package :sandbox
+                           (grade-student student-file question-label fname testcase-type))))
+    
+    ;; 2. Static Analysis & Violation Checking
+    (multiple-value-bind (violations graph)
+        (perform-static-analysis student-file fname tc-data)
+      
+      ;; 3. Apply Penalties
+      (when (and violations (> (getf summary :score) 0))
+        (setf summary (apply-violation-penalty! summary (getf tc-data :forbidden-symbols))))
+      
+      ;; 4. Output Reporting
+      (render-grading-report stream question-label summary graph violations fname))
+    
+    ;; 5. Optional critique
+    (critique-student-solution student-file)
     summary))
 
+;; --- Supporting Sub-functions ---
+
+(defun perform-static-analysis (file fname tc-data)
+  "Encapsulates the reading and analysis of student code."
+  (let* ((program    (safe-read-student-code file))
+         (forbidden  (getf (getf tc-data :forbidden-symbols) :symbols))
+         (graph      (get-call-graph fname program))
+         (violations (check-assessment-violations fname program forbidden)))
+    (values violations graph)))
+
+(defun apply-violation-penalty! (summary forbidden-info)
+  "Modifies the summary score based on forbidden symbol violations."
+  (let* ((penalty    (getf forbidden-info :penalty))
+         (orig-score (getf summary :score))
+         (multiplier (/ (- 100 penalty) 100)))
+    (setf (getf summary :score) (float (* orig-score multiplier)))
+    (setf (getf summary :penalty-applied) penalty)
+    summary)) ; Store for the reporter
+
+(defun render-grading-report (stream label summary graph violations fname)
+  "Handles all formatting/output logic."
+  (format stream "~%### Question ~A~%" (subseq (symbol-name label) 1))
+  (format stream "~%~%--- Results ---~%~%~D out of ~D tests passed (~A%)~%~{~a~^~%~}" 
+          (getf (getf summary :stats) :passed)
+          (getf (getf summary :stats) :total)
+          (getf summary :score)
+          (mapcar (lambda (x) (getf x :reason)) (getf summary :feedback)))
+  (format stream "~%~A~%" (generate-forbidden-function-violation-report fname graph violations))
+  
+  (if (getf summary :penalty-applied)
+      (format stream "~%!!! PENALTY APPLIED !!!~%Adjusted Score: ~F% (-~D% Penalty)~%" 
+              (getf summary :score) (getf summary :penalty-applied))
+      (format stream "~%Score: ~F%~%" (getf summary :score))))
 
 (defun chk-my-solution (a#)
   "Checks a student's solution file. Performs safe reading, static analysis,
@@ -154,7 +182,7 @@
 
     ;; Compiles test cases and the test cases runner
     (compile-test-cases-and-runner given-testcases-metadata)
-    (orchetrate-grading-of-one-solution a# q-testcase-data :given)))
+    (orchestrate-grading-of-one-solution a# q-testcase-data :given)))
 
 (defun orchestrate (assessment-folder assessment-name)
   (let* ((safe-path (uiop:ensure-directory-pathname assessment-folder)) ;; ensures path ends with /
