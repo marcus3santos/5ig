@@ -128,7 +128,7 @@
         (setf summary (apply-violation-penalty! summary (getf tc-data :forbidden-symbols))))
       
       ;; 4. Output Reporting
-      (render-grading-report stream question-label summary graph violations fname))
+      (render-grading-report stream question-label summary graph violations fname testcase-type))
     
     ;; 5. Optional critique
     (critique-student-solution student-file)
@@ -153,20 +153,48 @@
     (setf (getf summary :penalty-applied) penalty)
     summary)) ; Store for the reporter
 
-(defun render-grading-report (stream label summary graph violations fname)
+(defun render-grading-report (stream label summary graph violations fname testcase-type)
   "Handles all formatting/output logic."
-  (format stream "~%### Question ~A~%" (subseq (symbol-name label) 1))
-  (format stream "~%~%--- Results ---~%~%~D out of ~D tests passed (~A%)~%~{~a~^~%~}" 
+  (format stream "~%~%--[ Question ~A - Assessment Results ]----~%~D out of ~D tests passed~%Your score: ~A%~{~%~a~^~%~}"
+          (subseq (symbol-name label) 1)
           (getf (getf summary :stats) :passed)
           (getf (getf summary :stats) :total)
           (getf summary :score)
           (mapcar (lambda (x) (getf x :reason)) (getf summary :feedback)))
-  (format stream "~%~A~%" (generate-forbidden-function-violation-report fname graph violations))
+  (format stream "~%~A~%" (generate-forbidden-function-violation-report fname graph violations testcase-type))
   
-  (if (getf summary :penalty-applied)
-      (format stream "~%!!! PENALTY APPLIED !!!~%Adjusted Score: ~F% (-~D% Penalty)~%" 
+  (when (getf summary :penalty-applied)
+      (format stream "~%!!! PENALTY APPLIED !!!~%Your Adjusted Score for this question: ~F% (-~D% Penalty)~%" 
               (getf summary :score) (getf summary :penalty-applied))
-      (format stream "~%Score: ~F%~%" (getf summary :score))))
+      ;;(format stream "~%Your score for this question: ~F%~%" (getf summary :score))
+      ))
+
+(defun generate-forbidden-function-violation-report (target-func graph violations testcase-type)
+  "Produces a human-readable string summarizing any forbidden function 
+   violations."
+  (let ((report-stream (make-string-output-stream)))
+    (format report-stream "~%--- Forbidden Function Violation Analysis for ~A ---~%~%" target-func)
+    
+    ;; 2. Violation Reporting
+    (if (null violations)
+        (format report-stream "SUCCESS: No forbidden functions detected.")
+        (progn
+          ;; 1. Structure Overview
+          (format report-stream "Function Call Structure:~%")
+          (dolist (node (reverse graph))
+            (format report-stream "  [~A] calls -> ~{~A~^, ~}~%" 
+                    (car node) (or (second node) '("no functions"))))
+          
+          (format report-stream "~%--- Violation Check ---~%")
+    
+          (format report-stream "~%FAILED: Forbidden functions found.~%")
+          (dolist (v violations)
+            (format report-stream "  - In function '~A': Used forbidden (~{~A~^, ~})~%" 
+                    (car v) (cdr v)))
+          (when (eq testcase-type :given)
+            (format report-stream "~%Note: Rewrite the logic without using this/these helper(s)."))))
+    
+    (get-output-stream-string report-stream)))
 
 (defun chk-my-solution (a#)
   "Checks a student's solution file. Performs safe reading, static analysis,

@@ -1,31 +1,5 @@
 (in-package :grader)
 
-(defun generate-forbidden-function-violation-report (target-func graph violations)
-  "Produces a human-readable string summarizing any forbidden function 
-   violations."
-  (let ((report-stream (make-string-output-stream)))
-    (format report-stream "--- Forbidden Function Violation Analysis for ~A ---~%~%" target-func)
-    
-    ;; 2. Violation Reporting
-    (if (null violations)
-        (format report-stream "SUCCESS: No forbidden functions detected.")
-        (progn
-          ;; 1. Structure Overview
-          (format report-stream "Function Call Structure:~%")
-          (dolist (node (reverse graph))
-            (format report-stream "  [~A] calls -> ~{~A~^, ~}~%" 
-                    (car node) (or (second node) '("no functions"))))
-          
-          (format report-stream "~%--- Violation Check ---~%")
-    
-          (format report-stream "~%FAILED: Forbidden functions found.~%")
-          (dolist (v violations)
-            (format report-stream "  - In function '~A': Used forbidden (~{~A~^, ~})~%" 
-                    (car v) (cdr v)))
-          (format report-stream "~%Note: Rewrite the logic without using this/these helper(s).")))
-    
-    (get-output-stream-string report-stream)))
-
 
 (defun check-assessment-violations (target-func program forbidden-list)
   "Analyzes the program for forbidden function calls, even if nested 
