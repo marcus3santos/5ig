@@ -23,12 +23,19 @@
         #:fiveam)
   (:export #:gen-exam-files))
 
+(defpackage #:gensymifier
+  (:use #:cl )
+  (:export #:gensymify #:normalize-gensyms))
+
+(defpackage #:similarity-scorer
+  (:use #:cl #:gensymifier)
+  (:export #:normalize #:score-similarity))
+
 (defpackage #:grader
   (:use #:cl #:utils)
   (:export #:used-forbidden-function-p
            #:grade-student
            #:check-assessment-violations
-           #:generate-forbidden-function-violation-report
            #:critique-student-solution))
 
 (defpackage #:5ig

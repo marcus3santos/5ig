@@ -118,7 +118,6 @@
          ;; 1. Execute Functional Testing
          (summary        (with-package :sandbox
                            (grade-student student-file question-label fname testcase-type))))
-    
     ;; 2. Static Analysis & Violation Checking
     (multiple-value-bind (violations graph)
         (perform-static-analysis student-file fname tc-data)
@@ -131,7 +130,8 @@
       (render-grading-report stream question-label summary graph violations fname testcase-type))
     
     ;; 5. Optional critique
-    (critique-student-solution student-file)
+    (unless (getf summary :error)
+      (critique-student-solution student-file))
     summary))
 
 ;; --- Supporting Sub-functions ---
@@ -155,19 +155,20 @@
 
 (defun render-grading-report (stream label summary graph violations fname testcase-type)
   "Handles all formatting/output logic."
-  (format stream "~%~%--[ Question ~A - Assessment Results ]----~%~D out of ~D tests passed~%Your score: ~A%~{~%~a~^~%~}"
-          (subseq (symbol-name label) 1)
-          (getf (getf summary :stats) :passed)
-          (getf (getf summary :stats) :total)
-          (getf summary :score)
-          (mapcar (lambda (x) (getf x :reason)) (getf summary :feedback)))
-  (format stream "~%~A~%" (generate-forbidden-function-violation-report fname graph violations testcase-type))
-  
+  (format stream "~%~%--[ Question ~A - Assessment Results ]----" (subseq (symbol-name label) 1))
+  (when (getf summary :stats)
+    (format stream "~%~D out of ~D tests passed~%Your score: ~A%~{~%~a~^~%~}"
+            (getf (getf summary :stats) :passed)
+            (getf (getf summary :stats) :total)
+            (getf summary :score)
+            (mapcar (lambda (x) (getf x :reason)) (getf summary :feedback)))
+    (format stream "~%~A~%" (generate-forbidden-function-violation-report fname graph violations testcase-type)))
   (when (getf summary :penalty-applied)
       (format stream "~%!!! PENALTY APPLIED !!!~%Your Adjusted Score for this question: ~F% (-~D% Penalty)~%" 
-              (getf summary :score) (getf summary :penalty-applied))
-      ;;(format stream "~%Your score for this question: ~F%~%" (getf summary :score))
-      ))
+              (getf summary :score) (getf summary :penalty-applied)))
+  (when (getf summary :error)
+    (format stream "~%~a~%Your score: ~A"
+            (getf summary :error) (getf summary :score))))
 
 (defun generate-forbidden-function-violation-report (target-func graph violations testcase-type)
   "Produces a human-readable string summarizing any forbidden function 

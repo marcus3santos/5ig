@@ -52,8 +52,8 @@ in helper functions. Returns a list of (FUNCTION . VIOLATIONS)."
     
     (handler-case (with-package :sandbox
                     (load student-file))
-      (error (c) (return-from grade-student 
-                   (list :q-label q-label :error (format nil "Load Error: ~A" c)))))
+      (error (c) (return-from grade-student
+                   (list :q-label q-label :score 0.0 :error (format nil "Load Error: ~A" c)))))
     
     ;; 2. Execute the pre-compiled runner
     (let* ((raw-results (funcall runner-name))
