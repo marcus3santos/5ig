@@ -377,13 +377,44 @@ Returns T if A is considered less than B."
     res))
 
 (defun prepare-solution-for-comparison (target-func program)
-  "Helper to transform raw code into a flattened form for similarity analysis."
+  "Transforms a raw Lisp program into a standardized, self-contained functional 
+   structure optimized for tree-edit-distance similarity analysis.
+
+   The transformation pipeline consists of:
+   1. Atom Filtering: Removes top-level atoms to ensure only valid S-expressions 
+      remain.
+   2. Call Graph Generation: Maps the functional dependencies starting from 
+      TARGET-FUNC.
+   3. Code Extraction: Isolates only the functions and global definitions (constants/vars) 
+      identified in the call graph.
+   4. Helper Embedding: Refactors the code by moving helper functions into a 
+      local LABELS block inside the TARGET-FUNC definition, creating a single 
+      unified tree structure.
+
+   Returns a list of forms where the primary function encapsulates its 
+   dependencies."
   (let* ((clean-code (filter-atoms program))
          (cg         (get-call-graph target-func clean-code))
          (relevant   (get-relevant-code clean-code cg)))
     (embed-helpers target-func relevant)))
 
 (defun score-similarity (target-func raw-student-solution instructor-solutions)
+  "Calculates the maximum similarity between a student's implementation of TARGET-FUNC 
+   and a list of instructor solutions.
+
+   The function follows these steps:
+   1. Prepares the student's solution by filtering atoms, generating a call graph, 
+      isolating relevant code, and embedding helper functions.
+   2. Iterates through the INSTRUCTOR-SOLUTIONS, filtering for those that contain 
+      the TARGET-FUNC in their call graph.
+   3. Prepares each valid instructor solution for comparison using the same 
+      transformation pipeline as the student's code.
+   4. Finds the best match by iterating through prepared instructor solutions 
+      to find the highest similarity score.
+   
+   Returns a list containing the best similarity score, the normalized instructor 
+   solution, and the normalized student solution. If no similarity is found (score is 0), 
+   it returns the result of the closest identified instructor solution."
   (let* ((student-prepared (prepare-solution-for-comparison target-func raw-student-solution))
          (instructor-prepared-list
            (loop for s in instructor-solutions
@@ -392,12 +423,15 @@ Returns T if A is considered less than B."
                  when (tree-find target-func (get-call-graph target-func data))
                    collect (prepare-solution-for-comparison target-func data)))
          (best-match (find-best-similarity student-prepared instructor-prepared-list)))
-    
-    (if (zerop (first best-match))
-        (list 0.0
-              (closest-solution-to-the-profs-solution student-prepared instructor-prepared-list)
-              (third best-match))
-        best-match)))
+    (destructuring-bind (score instructor-solution student-solution)
+        (if (zerop (first best-match))
+            (list 0.0 
+                  (closest-solution-to-the-profs-solution student-prepared instructor-prepared-list) 
+                  (third best-match))
+            best-match)
+      (list :score score
+            :instructor-solution instructor-solution
+            :student-solution student-solution))))
 
 ;; Utility for the above
 (defun tree-find (item tree)

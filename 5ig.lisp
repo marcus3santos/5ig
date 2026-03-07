@@ -25,7 +25,8 @@
                                    (or (eq data :hidden)
                                        (eq data :given)
                                        (eq data :asked-function)
-                                       (eq data :forbidden-symbols)))
+                                       (eq data :forbidden-symbols)
+                                       (eq data :solutions)))
                                  (rest qdata) :key #'first)))
             (remove-if-not  #'q-label-p  assessment-data :key #'first)) ))
 
@@ -53,14 +54,16 @@
    * An association list where each element is of the form:
      (LABEL :ASKED-FUNCTION function-symbol 
             :FORBIDDEN-SYMBOLS (:PENALTY p :SYMBOLS (symbs))
-            :GIVEN (test-cases) :HIDDEN (test-cases))"
+            :GIVEN (test-cases) :HIDDEN (test-cases)
+            :SOLUTIONS (solutions))"
   (let* ((assessment-data (get-assessment-test-case-data assessment-data-file))
          (testcase-data (mapcar (lambda (q)
                                   (list q
                                         :asked-function (second (assoc :asked-function (rest (assoc q assessment-data))))
                                         :forbidden-symbols (rest (assoc :forbidden-symbols (rest (assoc q assessment-data))))
                                         :given (second (assoc :given (rest (assoc q assessment-data))))
-                                        :hidden (second (assoc :hidden (rest (assoc q assessment-data))))))
+                                        :hidden (second (assoc :hidden (rest (assoc q assessment-data))))
+                                        :solutions (rest (assoc :solutions (rest (assoc q assessment-data))))))
                                 q-labels-list)))
     (mapc (lambda (d)
             (export (list (intern (symbol-name (getf (rest d) :asked-function)) :sandbox)) :sandbox))
@@ -110,39 +113,18 @@
                    (warning #'muffle-warning))
       (eval test-cases-and-runner))))
 
-(defun orchestrate-grading-of-one-solution (student-file metadata testcase-type &optional (stream t))
-  "Orchestrates the grading of one solution file for a given question."
-  (let* ((question-label (first metadata))
-         (tc-data        (rest metadata))
-         (fname          (getf tc-data :asked-function))
-         ;; 1. Execute Functional Testing
-         (summary        (with-package :sandbox
-                           (grade-student student-file question-label fname testcase-type))))
-    ;; 2. Static Analysis & Violation Checking
-    (multiple-value-bind (violations graph)
-        (perform-static-analysis student-file fname tc-data)
-      
-      ;; 3. Apply Penalties
-      (when (and violations (> (getf summary :score) 0))
-        (setf summary (apply-violation-penalty! summary (getf tc-data :forbidden-symbols))))
-      
-      ;; 4. Output Reporting
-      (render-grading-report stream question-label summary graph violations fname testcase-type))
-    
-    ;; 5. Optional critique
-    (unless (getf summary :error)
-      (critique-student-solution student-file))
-    summary))
 
 ;; --- Supporting Sub-functions ---
 
 (defun perform-static-analysis (file fname tc-data)
-  "Encapsulates the reading and analysis of student code."
+  "Encapsulates the reading and analysis of student code.
+   VIOLATIONS will be nil if the student's code triggers
+   a loading error."
   (let* ((program    (safe-read-student-code file))
          (forbidden  (getf (getf tc-data :forbidden-symbols) :symbols))
          (graph      (get-call-graph fname program))
          (violations (check-assessment-violations fname program forbidden)))
-    (values violations graph)))
+    (values program violations graph)))
 
 (defun apply-violation-penalty! (summary forbidden-info)
   "Modifies the summary score based on forbidden symbol violations."
@@ -196,6 +178,30 @@
             (format report-stream "~%Note: Rewrite the logic without using this/these helper(s)."))))
     
     (get-output-stream-string report-stream)))
+
+(defun orchestrate-grading-of-one-solution (student-file metadata testcase-type &optional (stream t))
+  "Orchestrates the grading of one solution file for a given question."
+  (let* ((question-label (first metadata))
+         (tc-data (rest metadata))
+         (fname (getf tc-data :asked-function))
+         (solutions (getf tc-data :solutions))
+         ;; 1. Execute Functional Testing
+         (summary        (with-package :sandbox
+                           (grade-student student-file question-label fname testcase-type))))
+    ;; 2. Static Analysis & Violation Checking
+    (multiple-value-bind (program violations graph)
+        (perform-static-analysis student-file fname tc-data)
+      ;; 3. Apply Penalties
+      (when (and violations (> (getf summary :score) 0))
+        (setf summary (apply-violation-penalty! summary (getf tc-data :forbidden-symbols))))
+      (unless (getf summary :error)
+        (format t "~%Similarity score: ~s" (score-similarity fname program solutions)))
+      ;; 4. Output Reporting
+      (render-grading-report stream question-label summary graph violations fname testcase-type))
+    ;; 5. Style critique
+    (unless (getf summary :error)
+      (critique-student-solution student-file))
+    summary))
 
 (defun chk-my-solution (a#)
   "Checks a student's solution file. Performs safe reading, static analysis,

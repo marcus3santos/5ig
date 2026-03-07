@@ -25,11 +25,13 @@
 
 (defpackage #:gensymifier
   (:use #:cl )
-  (:export #:gensymify #:normalize-gensyms))
+  (:export #:gensymify
+           #:normalize-gensyms))
 
 (defpackage #:similarity-scorer
   (:use #:cl #:gensymifier)
-  (:export #:normalize #:score-similarity))
+  (:export #:normalize
+           #:score-similarity))
 
 (defpackage #:grader
   (:use #:cl #:utils)
@@ -39,5 +41,9 @@
            #:critique-student-solution))
 
 (defpackage #:5ig
-  (:use #:cl #:sxm-compiler #:utils #:grader)
+  (:use #:cl
+        #:sxm-compiler
+        #:utils
+        #:grader
+        #:similarity-scorer)
   (:export #:gen-exam-files))

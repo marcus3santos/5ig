@@ -3,7 +3,8 @@
 
 (defun check-assessment-violations (target-func program forbidden-list)
   "Analyzes the program for forbidden function calls, even if nested 
-in helper functions. Returns a list of (FUNCTION . VIOLATIONS)."
+   in helper functions. Returns a list of (FUNCTION . VIOLATIONS).
+   Returns nil if program is nil"
   (let* ((graph (get-call-graph target-func program))
          (report '()))
     (dolist (node graph)
