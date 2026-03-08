@@ -194,7 +194,8 @@
       ;; 3. Apply Penalties
       (when (and violations (> (getf summary :score) 0))
         (setf summary (apply-violation-penalty! summary (getf tc-data :forbidden-symbols))))
-      (unless (getf summary :error)
+      ;; 4. Take into account similarity score, only when grading
+      (when (and (eq testcase-type :hidden) (not (getf summary :error)))
         (format t "~%Similarity score: ~s" (score-similarity fname program solutions)))
       ;; 4. Output Reporting
       (render-grading-report stream question-label summary graph violations fname testcase-type))

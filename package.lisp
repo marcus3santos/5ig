@@ -29,7 +29,7 @@
            #:normalize-gensyms))
 
 (defpackage #:similarity-scorer
-  (:use #:cl #:gensymifier)
+  (:use #:cl #:gensymifier #:utils)
   (:export #:normalize
            #:score-similarity))
 
