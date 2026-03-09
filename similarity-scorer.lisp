@@ -3,7 +3,7 @@
 ;;;; Counts node insert/delete costs correctly and handles atoms
 ;;;; ============================================================
 
-(in-package :similarity-scorer)
+(in-package :similarity)
 
 ;;;; Helpers: treat any Lisp form as a tree node (atoms are leaves)
 (defun leafp (x) (not (consp x)))
@@ -294,7 +294,7 @@ Returns T if A is considered less than B."
          (relevant   (get-relevant-code clean-code cg)))
     (embed-helpers target-func relevant)))
 
-(defun score-similarity (target-func raw-student-solution instructor-solutions)
+(defun calc-similarity-score (target-func raw-student-solution instructor-solutions)
   "Calculates the maximum similarity between a student's implementation of TARGET-FUNC 
    and a list of instructor solutions.
 

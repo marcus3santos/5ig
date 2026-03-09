@@ -11,6 +11,7 @@
   :components ((:file "package")
                (:file "sandbox-utils")
                (:file "utils")
+               (:file "similarity-scorer")
                (:file "sxm")
                (:file "grader")
                (:file "5ig")))

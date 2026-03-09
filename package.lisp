@@ -28,22 +28,23 @@
   (:export #:gensymify
            #:normalize-gensyms))
 
-(defpackage #:similarity-scorer
+(defpackage #:similarity
   (:use #:cl #:gensymifier #:utils)
   (:export #:normalize
-           #:score-similarity))
+           #:calc-similarity-score))
 
 (defpackage #:grader
   (:use #:cl #:utils)
   (:export #:used-forbidden-function-p
            #:grade-student
            #:check-assessment-violations
-           #:critique-student-solution))
+           #:critique-student-solution
+           #:calc-final-mark))
 
 (defpackage #:5ig
   (:use #:cl
         #:sxm-compiler
         #:utils
         #:grader
-        #:similarity-scorer)
+        #:similarity)
   (:export #:gen-exam-files))

@@ -136,21 +136,33 @@
     summary)) ; Store for the reporter
 
 (defun render-grading-report (stream label summary graph violations fname testcase-type)
-  "Handles all formatting/output logic."
-  (format stream "~%~%--[ Question ~A - Assessment Results ]----" (subseq (symbol-name label) 1))
-  (when (getf summary :stats)
-    (format stream "~%~D out of ~D tests passed~%Your score: ~A%~{~%~a~^~%~}"
-            (getf (getf summary :stats) :passed)
-            (getf (getf summary :stats) :total)
-            (getf summary :score)
-            (mapcar (lambda (x) (getf x :reason)) (getf summary :feedback)))
-    (format stream "~%~A~%" (generate-forbidden-function-violation-report fname graph violations testcase-type)))
-  (when (getf summary :penalty-applied)
-      (format stream "~%!!! PENALTY APPLIED !!!~%Your Adjusted Score for this question: ~F% (-~D% Penalty)~%" 
-              (getf summary :score) (getf summary :penalty-applied)))
+  "Handles the final formatting of the grading results."
+  ;; 1. Header
+  (format stream "~%### Question ~A~%" (subseq (symbol-name label) 1))
+  
+  ;; 2. Static Analysis / Violations
+  (let ((violation-report (generate-forbidden-function-violation-report fname graph violations testcase-type)))
+    (when violation-report
+      (format stream "~%~A~%" violation-report)))
+
+  ;; 3. Functional Scoring & Penalties
+  (if (getf summary :penalty-applied)
+      (format stream "~%!!! PENALTY APPLIED !!!~%Adjusted Score: ~F% (-~D% Penalty)~%" 
+              (getf summary :score) (getf summary :penalty-applied))
+      (format stream "~%Score: ~F%~%" (getf summary :score)))
+
+  ;; 4. Similarity & Style Feedback
+  ;; Only render if it's a hidden test and feedback exists
+  (let ((feedback (getf summary :similarity-feedback)))
+    (when (and (eq testcase-type :hidden) feedback)
+      (format stream "~%--- Style & Logic Similarity Analysis ---~%")
+      (format stream "~A~%" feedback)
+      (format stream "------------------------------------------~%")))
+
+  ;; 5. Error messages if any
   (when (getf summary :error)
-    (format stream "~%~a~%Your score: ~A"
-            (getf summary :error) (getf summary :score))))
+    (format stream "~%!!! EXECUTION ERROR: ~A !!!~%" (getf summary :error))))
+
 
 (defun generate-forbidden-function-violation-report (target-func graph violations testcase-type)
   "Produces a human-readable string summarizing any forbidden function 
@@ -182,27 +194,47 @@
 (defun orchestrate-grading-of-one-solution (student-file metadata testcase-type &optional (stream t))
   "Orchestrates the grading of one solution file for a given question."
   (let* ((question-label (first metadata))
-         (tc-data (rest metadata))
-         (fname (getf tc-data :asked-function))
-         (solutions (getf tc-data :solutions))
+         (tc-data        (rest metadata))
+         (fname          (getf tc-data :asked-function))
+         (solutions      (getf tc-data :solutions))
          ;; 1. Execute Functional Testing
          (summary        (with-package :sandbox
                            (grade-student student-file question-label fname testcase-type))))
+    
     ;; 2. Static Analysis & Violation Checking
     (multiple-value-bind (program violations graph)
         (perform-static-analysis student-file fname tc-data)
-      ;; 3. Apply Penalties
+      
+      ;; 3. Apply Forbidden Symbol Penalties
       (when (and violations (> (getf summary :score) 0))
         (setf summary (apply-violation-penalty! summary (getf tc-data :forbidden-symbols))))
-      ;; 4. Take into account similarity score, only when grading
-      (when (and (eq testcase-type :hidden) (not (getf summary :error)))
-        (format t "~%Similarity score: ~s" (score-similarity fname program solutions)))
-      ;; 4. Output Reporting
+      
+      ;; 4. Similarity Grading (Only for :hidden testcases and if no functional errors)
+      (when (and (eq testcase-type :hidden) 
+                 (not (getf summary :error)))
+
+        (format t "~% @@@ ~a" (calc-similarity-score fname program solutions))
+        ;; score-similarity returns a plist: (:score :instructor-solution :student-solution) 
+        (let* ((sim-results (calc-similarity-score fname program solutions)) 
+               (sim-score   (getf sim-results :score))
+               (prof-sol    (getf sim-results :instructor-solution)))
+          
+          ;; 5. Invoke refactored final-mark to get feedback and score
+          (multiple-value-bind (feedback-string final-score)
+              (calc-final-mark (getf summary :score) sim-score prof-sol)
+            
+            ;; Update summary with the weighted/bonus score and the report string
+            (setf (getf summary :score) final-score)
+            (setf (getf summary :similarity-feedback) feedback-string))))
+          
+      ;; 6. Output Reporting
       (render-grading-report stream question-label summary graph violations fname testcase-type))
-    ;; 5. Style critique
+    
+    ;; 7. Style critique
     (unless (getf summary :error)
       (critique-student-solution student-file))
     summary))
+
 
 (defun chk-my-solution (a#)
   "Checks a student's solution file. Performs safe reading, static analysis,
@@ -214,11 +246,11 @@
          (q-label (intern (string-upcase (pathname-name a#)) :keyword))
          (assessment-test-case-data (process-assessment-test-case-data assessment-data-file (list q-label)))
          (q-testcase-data (assoc q-label assessment-test-case-data))
-         (given-testcases-metadata (getf (rest q-testcase-data) :given)))
+         (given-testcases-metadata (getf (rest q-testcase-data) :hidden)))
 
     ;; Compiles test cases and the test cases runner
     (compile-test-cases-and-runner given-testcases-metadata)
-    (orchestrate-grading-of-one-solution a# q-testcase-data :given)))
+    (orchestrate-grading-of-one-solution a# q-testcase-data :hidden)))
 
 (defun orchestrate (assessment-folder assessment-name)
   (let* ((safe-path (uiop:ensure-directory-pathname assessment-folder)) ;; ensures path ends with /
@@ -229,7 +261,7 @@
                                                                :type "data")
                                                 *assessment-data-folder*)))
      (let ((report-stream (make-string-output-stream)))
-       (orchetrate-student-grading "~/pt1-v2/q1.lisp" )  
+       (orchestrate-student-grading "~/pt1-v2/q1.lisp" )  
        (get-output-stream-string report-stream))
 
     student-lisp-program-files
