@@ -199,7 +199,8 @@
          (solutions      (getf tc-data :solutions))
          ;; 1. Execute Functional Testing
          (summary        (with-package :sandbox
-                           (grade-student student-file question-label fname testcase-type))))
+                           (grade-student student-file question-label fname testcase-type)))
+         (score-history (list :functional-score (getf summary :score))))
     
     ;; 2. Static Analysis & Violation Checking
     (multiple-value-bind (program violations graph)
@@ -208,7 +209,7 @@
       ;; 3. Apply Forbidden Symbol Penalties
       (when (and violations (> (getf summary :score) 0))
         (setf summary (apply-violation-penalty! summary (getf tc-data :forbidden-symbols))))
-      
+      (setf (getf score-history :violation-score) (getf summary :score))
       ;; 4. Similarity Grading (Only for :hidden testcases and if no functional errors)
       (when (and (eq testcase-type :hidden) 
                  (not (getf summary :error)))
@@ -224,8 +225,9 @@
             
             ;; Update summary with the weighted/bonus score and the report string
             (setf (getf summary :score) final-score)
-            (setf (getf summary :similarity-feedback) feedback-string))))
-          
+            (setf (getf summary :similarity-feedback) feedback-string)
+            (setf (getf score-history :similarity-bonus-score) final-score))))
+      
       ;; 6. Output Reporting
       (render-grading-report stream question-label summary graph violations fname testcase-type))
     
