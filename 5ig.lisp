@@ -139,29 +139,29 @@
   "Handles the final formatting of the grading results."
   ;; 1. Header
   (format stream "~%### Question ~A~%" (subseq (symbol-name label) 1))
-  
-  ;; 2. Static Analysis / Violations
-  (let ((violation-report (generate-forbidden-function-violation-report fname graph violations testcase-type)))
-    (when violation-report
-      (format stream "~%~A~%" violation-report)))
+  (unless (getf summary :error)
+    ;; 2. Static Analysis / Violations
+    (let ((violation-report (generate-forbidden-function-violation-report fname graph violations testcase-type)))
+      (when violation-report
+        (format stream "~%~A~%" violation-report)))
 
-  ;; 3. Functional Scoring & Penalties
-  (if (getf summary :penalty-applied)
-      (format stream "~%!!! PENALTY APPLIED !!!~%Adjusted Score: ~,2F, [0 to 100] (-~D% Penalty)~%" 
-              (getf summary :score) (getf summary :penalty-applied))
-      (format stream "~%Score: ~,2F, [0 to 100]~%" (getf summary :score)))
+    ;; 3. Functional Scoring & Penalties
+    (if (getf summary :penalty-applied)
+        (format stream "~%!!! PENALTY APPLIED !!!~%Adjusted Score: ~,2F, [0 to 100] (-~D% Penalty)~%" 
+                (getf summary :score) (getf summary :penalty-applied))
+        (format stream "~%Score: ~,2F, [0 to 100]~%" (getf summary :score)))
 
-  ;; 4. Similarity & Style Feedback
-  ;; Only render if it's a hidden test and feedback exists
-  (let ((feedback (getf summary :similarity-feedback)))
-    (when (and (eq testcase-type :hidden) feedback)
-      (format stream "~%--- Style & Logic Similarity Analysis ---~%")
-      (format stream "~A~%" feedback)
-      (format stream "------------------------------------------~%")))
+    ;; 4. Similarity & Style Feedback
+    ;; Only render if it's a hidden test and feedback exists
+    (let ((feedback (getf summary :similarity-feedback)))
+      (when (and (eq testcase-type :hidden) feedback)
+        (format stream "~%--- Style & Logic Similarity Analysis ---~%")
+        (format stream "~A~%" feedback)
+        (format stream "------------------------------------------~%"))))
 
   ;; 5. Error messages if any
   (when (getf summary :error)
-    (format stream "~%!!! EXECUTION ERROR: ~A !!!~%" (getf summary :error))))
+    (format stream "~%!!! EXECUTION ERROR: !!!~%Your Score: ~,2F~%~A~%" (getf summary :score) (getf summary :error))))
 
 
 (defun generate-forbidden-function-violation-report (target-func graph violations testcase-type)
@@ -231,7 +231,7 @@
     
     ;; 7. Style critique
     (unless (getf summary :error)
-      (critique-student-solution student-file))
+      (critique-student-solution-style student-file))
     summary))
 
 
