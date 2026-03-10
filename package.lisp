@@ -38,7 +38,7 @@
   (:export #:used-forbidden-function-p
            #:grade-student
            #:check-assessment-violations
-           #:critique-student-solution
+           #:critique-student-solution-style
            #:calc-final-mark))
 
 (defpackage #:5ig

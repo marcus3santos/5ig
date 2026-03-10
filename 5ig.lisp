@@ -135,44 +135,47 @@
     (setf (getf summary :penalty-applied) penalty)
     summary)) ; Store for the reporter
 
-(defun render-grading-report (stream label summary graph violations fname testcase-type)
+(defun render-grading-report (stream label score-history summary graph violations fname testcase-type)
   "Handles the final formatting of the grading results."
   ;; 1. Header
   (format stream "~%### Question ~A~%" (subseq (symbol-name label) 1))
+  (format stream "~%--- Functional Correctness Analysis (% of test cases passed) ---~%")
+  (format stream "~%Score: ~,2F, [0 to 100]" (getf score-history :functional-score))
   (unless (getf summary :error)
     ;; 2. Static Analysis / Violations
     (let ((violation-report (generate-forbidden-function-violation-report fname graph violations testcase-type)))
       (when violation-report
-        (format stream "~%~A~%" violation-report)))
+        (format stream "~%~A" violation-report)))
 
     ;; 3. Functional Scoring & Penalties
-    (if (getf summary :penalty-applied)
-        (format stream "~%!!! PENALTY APPLIED !!!~%Adjusted Score: ~,2F, [0 to 100] (-~D% Penalty)~%" 
-                (getf summary :score) (getf summary :penalty-applied))
-        (format stream "~%Score: ~,2F, [0 to 100]~%" (getf summary :score)))
+    (when (getf summary :penalty-applied)
+        (format stream "~%!!! PENALTY APPLIED !!!~%Original Score: ~,2F, [0 to 100]~%Adjusted Score: ~,2F, [0 to 100] (-~D% Penalty)~%" 
+                (getf score-history :functional-score) (getf score-history :violation-score) (getf summary :penalty-applied))
+        ;;(format stream "~%Score: ~,2F, [0 to 100]~%" (getf score-history :functional-score))
+        )
 
     ;; 4. Similarity & Style Feedback
     ;; Only render if it's a hidden test and feedback exists
     (let ((feedback (getf summary :similarity-feedback)))
       (when (and (eq testcase-type :hidden) feedback)
-        (format stream "~%--- Style & Logic Similarity Analysis ---~%")
+        (format stream "~%--- Final Score, Style & Logic Similarity Analysis ---~%~%")
         (format stream "~A~%" feedback)
         (format stream "------------------------------------------~%"))))
 
   ;; 5. Error messages if any
   (when (getf summary :error)
-    (format stream "~%!!! EXECUTION ERROR: !!!~%Your Score: ~,2F~%~A~%" (getf summary :score) (getf summary :error))))
+    (format stream "~%!!! EXECUTION ERROR: !!!~%~A~%" (getf summary :error))))
 
 
 (defun generate-forbidden-function-violation-report (target-func graph violations testcase-type)
   "Produces a human-readable string summarizing any forbidden function 
    violations."
   (let ((report-stream (make-string-output-stream)))
-    (format report-stream "~%--- Forbidden Function Violation Analysis for ~A ---~%~%" target-func)
+    (format report-stream "~%--- Forbidden Function Violation Analysis for Function ~A ---~%" target-func)
     
     ;; 2. Violation Reporting
     (if (null violations)
-        (format report-stream "SUCCESS: No forbidden functions detected.")
+        (format report-stream "~%SUCCESS: No forbidden functions detected.~%")
         (progn
           ;; 1. Structure Overview
           (format report-stream "Function Call Structure:~%")
@@ -221,7 +224,7 @@
           
           ;; 5. Invoke refactored final-mark to get feedback and score
           (multiple-value-bind (feedback-string final-score)
-              (calc-final-mark (getf summary :score) sim-score prof-sol)
+              (calc-final-mark score-history sim-score prof-sol)
             
             ;; Update summary with the weighted/bonus score and the report string
             (setf (getf summary :score) final-score)
@@ -229,7 +232,7 @@
             (setf (getf score-history :similarity-bonus-score) final-score))))
       
       ;; 6. Output Reporting
-      (render-grading-report stream question-label summary graph violations fname testcase-type))
+      (render-grading-report stream question-label score-history summary graph violations fname testcase-type))
     
     ;; 7. Style critique
     (unless (getf summary :error)

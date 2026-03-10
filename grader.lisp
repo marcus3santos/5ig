@@ -44,7 +44,7 @@
                                     :type (type-of f)))
                             failures))))
 
-(defun critique-student-solution (sol)
+(defun critique-student-solution-style (sol)
   (let ((output (with-output-to-string (*standard-output*)
                   (lisp-critic:critique-file sol))))
     ;; We check if the output contains a hint (usually starts with a paren or keyword)
@@ -71,11 +71,11 @@
            (summary (summarize-results q-label raw-results)))
       summary)))
 
-(defun calc-final-mark (correctness similarity professor-solution)
+(defun calc-final-mark (score-history similarity professor-solution)
   "Calculates the final grade and generates a feedback report.
    
    Arguments:
-   - correctness: Functional score (0-100).
+   - score-history: A plist (:functional-score value :violation-score value).
    - similarity: Style similarity metric (0.0-1.0).
    - professor-solution: The normalized instructor code used for comparison.
 
@@ -84,9 +84,9 @@
    2. The final calculated score (float)."
   (let ((rounded-sim (/ (round (* similarity 10)) 10.0)))
     (multiple-value-bind (final-score case-type)
-        (calculate-weighted-score correctness rounded-sim)
+        (calculate-weighted-score (getf score-history :violation-score) rounded-sim)
       (let ((feedback (generate-similarity-report case-type 
-                                                 correctness 
+                                                  (append (list :similarity-bonus-score final-score) score-history) 
                                                  rounded-sim 
                                                  professor-solution)))
         (values feedback final-score)))))
@@ -109,30 +109,40 @@
 
 ;; --- Presentation Layer ---
 
-(defun generate-similarity-report (case-type correctness similarity prof-sol)
+(defun generate-similarity-report (case-type score-history similarity prof-sol)
   "Handles all string formatting based on the specific grading scenario."
   (case case-type
     (:bonus
-     (format nil "Calculation: (+ CORRECTNESS (* MAX-STYLE-BONUS STYLE-SIMILARITY))~%~
+     (format nil "Final Score: ~,2F, [0 to ~A]~%Calculation: (+ CORRECTNESS (* MAX-STYLE-BONUS STYLE-SIMILARITY))~%~
                   - Correctness: ~,2F, [0 to 100]~%~
-                  - Max Style Bonus: ~,2F, [0 to 100]~%~
-                  - Logic Similarity: ~,2F, [0 to 1] (>= threshold ~a)~%~
+                  - Max Style Bonus: ~,2F~%~
+                  - Logic Similarity: ~,2F, [0 to 1] >= threshold of ~a~%~
                   - Reference Solution:~%~s"
-             correctness +style-bonus-mark+ similarity +similarity-threshold+ prof-sol))
+             (getf score-history :similarity-bonus-score)
+             (+ 100 +style-bonus-mark+)
+             (getf score-history :violation-score)
+             +style-bonus-mark+
+             similarity
+             +similarity-threshold+ prof-sol))
     (:perfect-no-bonus
-     (format nil "Calculation: (+ CORRECTNESS 0.0)~%~
+     (format nil "Final Score: ~,2F, [0 to 100]~%Calculation: (+ CORRECTNESS 0.0)~%~
                   - Correctness: ~,2F, [0 to 100]~%~
                   - Note: Your code's logic similarity ~,2F is below ~,2F for bonus.~%~
                   - Reference Solution:~%~s"
-             correctness similarity +similarity-threshold+ prof-sol))
+             (getf score-history :similarity-bonus-score)
+             (getf score-history :violation-score)
+             similarity
+             +similarity-threshold+
+             prof-sol))
     (:standard
-     (format nil "Calculation: (MAX CORRECTNESS (+ (* CORRECTNESS CORRECTNESS-WEIGHT) (* STYLE STYLE-WEIGHT)))~%~
+     (format nil "Final Score: ~,2F, [0 to 100]~%Calculation: (MAX CORRECTNESS (+ (* CORRECTNESS CORRECTNESS-WEIGHT) (* STYLE STYLE-WEIGHT)))~%~
                     - Correctness: ~,2F, [0 to 100]~%~
                     - Correctness Weight: ~,2F, [0 to 1]~%~
                     - Logic Similarity Weight: ~,2F, [0 to 1]~%~
                     - Logic Similarity: ~,2F, [0 to 1]~%~
                     - Reference Solution:~%~s"
-             correctness
+             (getf score-history :similarity-bonus-score)
+             (getf score-history :violation-score)
              +correctness-weight+
              +style-weight+
              similarity

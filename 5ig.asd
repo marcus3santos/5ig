@@ -7,7 +7,7 @@
   :license  "Specify license here"
   :version "0.0.1"
   :serial t
-  :depends-on (:fiveam :lisp-critic)
+  :depends-on (:fiveam :lisp-critic :sb-concurrency)
   :components ((:file "package")
                (:file "sandbox-utils")
                (:file "utils")
