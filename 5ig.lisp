@@ -147,9 +147,9 @@
 
   ;; 3. Functional Scoring & Penalties
   (if (getf summary :penalty-applied)
-      (format stream "~%!!! PENALTY APPLIED !!!~%Adjusted Score: ~F% (-~D% Penalty)~%" 
+      (format stream "~%!!! PENALTY APPLIED !!!~%Adjusted Score: ~,2F, [0 to 100] (-~D% Penalty)~%" 
               (getf summary :score) (getf summary :penalty-applied))
-      (format stream "~%Score: ~F%~%" (getf summary :score)))
+      (format stream "~%Score: ~,2F, [0 to 100]~%" (getf summary :score)))
 
   ;; 4. Similarity & Style Feedback
   ;; Only render if it's a hidden test and feedback exists
@@ -213,7 +213,6 @@
       (when (and (eq testcase-type :hidden) 
                  (not (getf summary :error)))
 
-        (format t "~% @@@ ~a" (calc-similarity-score fname program solutions))
         ;; score-similarity returns a plist: (:score :instructor-solution :student-solution) 
         (let* ((sim-results (calc-similarity-score fname program solutions)) 
                (sim-score   (getf sim-results :score))
@@ -236,7 +235,7 @@
     summary))
 
 
-(defun chk-my-solution (a#)
+(defun chk-my-solution (a# &optional (kind :given))
   "Checks a student's solution file. Performs safe reading, static analysis,
    and applies percentage penalties based on the :penalty metadata value."
   (unless (probe-file a#)
@@ -246,11 +245,11 @@
          (q-label (intern (string-upcase (pathname-name a#)) :keyword))
          (assessment-test-case-data (process-assessment-test-case-data assessment-data-file (list q-label)))
          (q-testcase-data (assoc q-label assessment-test-case-data))
-         (given-testcases-metadata (getf (rest q-testcase-data) :hidden)))
+         (testcases-metadata (getf (rest q-testcase-data) kind)))
 
     ;; Compiles test cases and the test cases runner
-    (compile-test-cases-and-runner given-testcases-metadata)
-    (orchestrate-grading-of-one-solution a# q-testcase-data :hidden)))
+    (compile-test-cases-and-runner testcases-metadata)
+    (orchestrate-grading-of-one-solution a# q-testcase-data kind)))
 
 (defun orchestrate (assessment-folder assessment-name)
   (let* ((safe-path (uiop:ensure-directory-pathname assessment-folder)) ;; ensures path ends with /

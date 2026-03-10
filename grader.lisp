@@ -114,25 +114,37 @@
   (case case-type
     (:bonus
      (format nil "Calculation: (+ CORRECTNESS (* MAX-STYLE-BONUS STYLE-SIMILARITY))~%~
-                  - Correctness: ~,2F~%~
-                  - Similarity: ~a (>= threshold ~a)~%~
-                  - Reference Code:~%~s"
-             correctness similarity +similarity-threshold+ prof-sol))
+                  - Correctness: ~,2F, [0 to 100]~%~
+                  - Max Style Bonus: ~,2F, [0 to 100]~%~
+                  - Logic Similarity: ~,2F, [0 to 1] (>= threshold ~a)~%~
+                  - Reference Solution:~%~s"
+             correctness +style-bonus-mark+ similarity +similarity-threshold+ prof-sol))
     (:perfect-no-bonus
      (format nil "Calculation: (+ CORRECTNESS 0.0)~%~
-                  - Correctness: ~,2F~%~
-                  - Note: Similarity ~a is below ~a for bonus.~%~
-                  - Reference Code:~%~s"
+                  - Correctness: ~,2F, [0 to 100]~%~
+                  - Note: Your code's logic similarity ~,2F is below ~,2F for bonus.~%~
+                  - Reference Solution:~%~s"
              correctness similarity +similarity-threshold+ prof-sol))
     (:standard
-     (let ((drift-msg (if (zerop similarity) 
-                          "Note: Your logic varies significantly." 
-                          "Note: High structural similarity found.")))
-       (format nil "Calculation: (MAX CORRECTNESS (+ (* C Wc) (* S Ws)))~%~
-                    - Correctness: ~,2F (~a weight)~%~
-                    - Style Weight: ~a~%~
-                    - Similarity: ~a~%~
-                    - ~A~%~
-                    - Reference Code:~%~s"
-               correctness +correctness-weight+ +style-weight+ 
-               similarity drift-msg prof-sol)))))
+     (format nil "Calculation: (MAX CORRECTNESS (+ (* CORRECTNESS CORRECTNESS-WEIGHT) (* STYLE STYLE-WEIGHT)))~%~
+                    - Correctness: ~,2F, [0 to 100]~%~
+                    - Correctness Weight: ~,2F, [0 to 1]~%~
+                    - Logic Similarity Weight: ~,2F, [0 to 1]~%~
+                    - Logic Similarity: ~,2F, [0 to 1]~%~
+                    - Reference Solution:~%~s"
+             correctness
+             +correctness-weight+
+             +style-weight+
+             similarity
+             prof-sol)
+     #|
+     (format nil "Calculation: (MAX CORRECTNESS (+ (* CORRECTNESS CORRECTNESS-WEIGHT) (* STYLE STYLE-WEIGHT)))~%~
+                    - Correctness: ~,2F, [0 to 100]~%~
+                    - Correctness weight: ~,2F, [0 to 1]~%~ 
+                    - Style Weight: ~,2F, [0 to 1]~%~
+                    - Similarity: ~,2F, [0 to 1]~%~
+                    - Reference Solution:~%~s"
+             correctness +correctness-weight+ +style-weight+ 
+             similarity  prof-sol)
+     |#
+     )))
