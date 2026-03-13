@@ -3,12 +3,21 @@
 (defstruct test-result
   passed-p expr reason type)
 
+(defun safe-read (string)
+  "Safely reads a Lisp form from the subprocess output string."
+  (with-input-from-string (s string)
+    (loop for form = (handler-case (read s nil :eof)
+                             (error () :junk))
+          until (eq form :eof)
+          when (and (consp form) (member (car form) '(:ok :error)))
+          return form)))
+
 (defun safe-read-student-code (file-path)
   "Reads a student's file in a restricted environment to prevent 
 malicious reader macros or resource exhaustion."
   (with-open-file (in file-path)
-    (let ((*read-eval* nil)           ;; Prevents #. execution
-          (*read-base* 10)            ;; Ensures standard decimal reading
+    (let ((*read-eval* nil) ;; Prevents #. execution
+          (*read-base* 10)  ;; Ensures standard decimal reading
           ;;(*package* (find-package :sandbox))
           ;; Prevent circularity bombs
           (*read-circle* nil))        
@@ -24,15 +33,17 @@ malicious reader macros or resource exhaustion."
   "Spawns a new SBCL process with a strict memory limit."
   (let* ((memory-limit-mb 256) ;; Set limit to 256MB
          (input-string 
-           (format nil 
-             "(handler-case 
-                (sb-ext:with-timeout ~A 
-                  (let ((result (progn ~S)))
-                    (format t \"(~S . ~~S)~~%\" result)))
-                (sb-ext:timeout () (format t \"(:error . :timeout)~~%\"))
-                (error (c) (format t \"(:error . ~~S)~~%\" (format nil \"~~A\" c))))
-              (sb-ext:exit)" 
-             timeout form :ok))
+           (format nil                 
+                   "(HANDLER-CASE
+ (WITH-TIMEOUT ~D
+   (FORMAT T \"
+(:OK . ~~S)~%\"
+           ~S))
+ (TIMEOUT NIL (FORMAT T \"(:ERROR . :TIMEOUT)~%\"))
+ (ERROR (C) (FORMAT T \"(:ERROR . ~~S)~%\" (FORMAT NIL \"~~A\" C))))"
+             timeout form
+                   
+             ))
          (command (list "sbcl" 
                         "--dynamic-space-size" (format nil "~A" memory-limit-mb)
                         "--noinform" 
