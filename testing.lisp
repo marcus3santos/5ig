@@ -35,12 +35,12 @@ malicious reader macros or resource exhaustion."
          (input-string 
            (format nil                 
                    "(HANDLER-CASE
- (WITH-TIMEOUT ~D
+ (SB-EXT:WITH-TIMEOUT ~D
    (FORMAT T \"
 (:OK . ~~S)~%\"
            ~S))
- (TIMEOUT NIL (FORMAT T \"(:ERROR . :TIMEOUT)~%\"))
- (ERROR (C) (FORMAT T \"(:ERROR . ~~S)~%\" (FORMAT NIL \"~~A\" C))))"
+ (SB-EXT:TIMEOUT () (FORMAT T \"(:ERROR . \"TIMEOUT\")~~%\"))
+ (ERROR (C) (FORMAT T \"(:ERROR . ~~S)~~%\" (FORMAT NIL \"~~A\" C))))"
              timeout form
                    
              ))
