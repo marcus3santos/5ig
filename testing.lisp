@@ -1,68 +1,91 @@
-(defconstant +timeout+ 1)
+;;;; Modular Lisp Sandbox Runner
 
-(defstruct test-result
-  passed-p expr reason type)
+;; --- 1. DATA STRUCTURES ---
+(defstruct (execution-result (:type list))
+  status  ; :ok, :error, :timeout, :overflow, :security-violation
+  value   ; The evaluated Lisp object
+  log     ; Combined stdout/stderr
+  code)   ; Exit status code from the OS
 
-(defun safe-read (string)
-  "Safely reads a Lisp form from the subprocess output string."
-  (with-input-from-string (s string)
-    (loop for form = (handler-case (read s nil :eof)
-                             (error () :junk))
-          until (eq form :eof)
-          when (and (consp form) (member (car form) '(:ok :error)))
-          return form)))
+;; --- 2. SAFETY MODULE ---
+(defparameter *forbidden-symbols* '(delete-file delete-directory rename-file 
+    sb-ext:run-program uiop:run-program 
+    cl-user::quit sb-ext:quit sb-sys:make-fd-stream
+    cl:eval-when cl:load-time-value))
 
-(defun safe-read-student-code (file-path)
-  "Reads a student's file in a restricted environment to prevent 
-malicious reader macros or resource exhaustion."
-  (with-open-file (in file-path)
-    (let ((*read-eval* nil) ;; Prevents #. execution
-          (*read-base* 10)  ;; Ensures standard decimal reading
-          ;;(*package* (find-package :sandbox))
-          ;; Prevent circularity bombs
-          (*read-circle* nil))        
-      (handler-case
-          ;; Reading the whole file as a list of forms
+(defun %contains-forbidden-p (form)
+  "Recursive check for blacklisted symbols."
+  (cond ((symbolp form) 
+         (member (symbol-name form) *forbidden-symbols* :test #'string-equal :key #'symbol-name))
+        ((consp form) 
+         (or (%contains-forbidden-p (car form))
+             (%contains-forbidden-p (cdr form))))
+        (t nil)))
+
+(defun check-safety (path)
+  "Statically analyzes a file. Returns (values is-safe-p forbidden-item)."
+  (let ((*read-eval* nil)) ; CRITICAL: Prevents #. execution during READ
+    (handler-case
+        (with-open-file (in path)
           (loop for form = (read in nil :eof)
                 until (eq form :eof)
-                collect form)
-        (error (c)
-          (values nil (format nil "Reader Error: ~A" c)))))))
+                when (%contains-forbidden-p form)
+                  do (return-from check-safety (values nil form))))
+      (error () (return-from check-safety (values nil :read-error))))
+    (values t nil)))
 
+;; --- 3. EXECUTION ENGINE ---
+(defparameter *sbcl-bin* "sbcl")
+(defparameter *mem-limit-mb* 256)
+
+(defun %build-payload (form student-path)
+  "Generates the string of code to be passed to the subprocess."
+  (prin1-to-string
+   `(handler-case
+        (progn
+          (load (pathname ,(namestring student-path)))
+          (format t "~S" (eval ',form)))
+      (storage-condition () (uiop:quit 101)) ; Handles Stack/Heap Overflow
+      (error (e) (progn (format *error-output* "~A" e) 
+                        (uiop:quit 102))))))
+
+(defun %run-os-process (lisp-code timeout)
+  "Handles the low-level UIOP system call."
+  (handler-case
+      (uiop:run-program 
+       (list *sbcl-bin* "--noinform" "--non-interactive"
+             "--dynamic-space-size" (write-to-string *mem-limit-mb*)
+             "--eval" lisp-code "--quit")
+       :output :string 
+       :error-output :string 
+       :timeout timeout 
+       :ignore-error-status t)
+    (uiop/run-program:subprocess-error () 
+      (values nil "Process Timed Out" nil))))
+
+;; --- 4. MAIN ORCHESTRATOR ---
 (defun run-in-subprocess (form student-code-path timeout)
-  "Spawns a new SBCL process with a strict memory limit."
-  (let* ((memory-limit-mb 256) ;; Set limit to 256MB
-         (input-string 
-           (format nil                 
-                   "(HANDLER-CASE
- (SB-EXT:WITH-TIMEOUT ~D
-   (FORMAT T \"
-(:OK . ~~S)~%\"
-           ~S))
- (SB-EXT:TIMEOUT () (FORMAT T \"(:ERROR . \"TIMEOUT\")~~%\"))
- (ERROR (C) (FORMAT T \"(:ERROR . ~~S)~~%\" (FORMAT NIL \"~~A\" C))))"
-             timeout form
-                   
-             ))
-         (command (list "sbcl" 
-                        "--dynamic-space-size" (format nil "~A" memory-limit-mb)
-                        "--noinform" 
-                        "--disable-debugger" 
-                        "--quit" 
-                        "--load" (namestring student-code-path)
-                        "--eval" input-string)))
-    (handler-case
-        (multiple-value-bind (output error-output exit-code)
-            (uiop:run-program command :output :string :error-output :string :ignore-error-status t)
-          (declare (ignore error-output))
-          (if (/= exit-code 0)
-              ;; Now we can be more specific about why it crashed
-              (make-condition 'simple-error :format-control "Subprocess Terminated (Likely Heap Exhaustion or Timeout)")
-              (let ((result (safe-read output)))
-                (cond ((null result) (make-condition 'simple-error :format-control "No valid output from test"))
-                      ((eq (car result) :ok) (cdr result))
-                      (t (make-condition 'simple-error :format-control (cdr result)))))))
-      (error (c) c))))
+  "Main entry point: Validates, executes, and reports."
+  (multiple-value-bind (safe-p forbidden-item) (check-safety student-code-path)
+    (if (not safe-p)
+        (make-execution-result 
+         :status :security-violation
+         :log (format nil "Security Error: Found ~A" forbidden-item))
+        
+        (let ((payload (%build-payload form student-code-path)))
+          (multiple-value-bind (stdout stderr exit-code) 
+              (%run-os-process payload timeout)
+            
+            (let ((status (cond ((null exit-code) :timeout)
+                                ((= exit-code 0)   :ok)
+                                ((= exit-code 101) :overflow)
+                                (t                 :error))))
+              (make-execution-result 
+               :status status
+               :value  (when (eq status :ok) 
+                         (handler-case (read-from-string stdout) (error () nil)))
+               :log    (if (eq status :ok) stdout stderr)
+               :code   exit-code)))))))
 
 (defun report-result (result expected form)
   (let* ((passed (and (not (typep result 'condition))
