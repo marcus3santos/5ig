@@ -2,7 +2,7 @@
 
 (in-package #:5ig)
 
-;; Folder where assessment metadata files should be store
+;; Folder where assessment metadata files should be stored
 
 (defparameter *assessment-data-folder* (merge-pathnames (make-pathname :directory '(:relative "quicklisp" "local-projects" "5ig" "Assessment-data"))
                                                         (user-homedir-pathname)))
