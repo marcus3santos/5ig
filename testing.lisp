@@ -1,11 +1,11 @@
 ;;;; Modular Lisp Sandbox Runner
 
-(defconstant +timeout+ 1)
+(defconstant +timeout+ 0.5)
 
 ;; --- 1. DATA STRUCTURES ---
 (defstruct (execution-result (:type list))
   status       ; :ok, :error, :timeout, :overflow, :security-violation
-  value        ; The evaluated test form
+  value        ; (:ok :PASSED-P <T/NIL> :GOT <returned-result> :EXPECTED <expected-result>))
   log          ; Combined stdout/stderr
   code)   ; Exit status code from the OS
 
@@ -13,7 +13,7 @@
   passed-p ; test passed?, T/NIL
   expr     ; the form that was tested
   reason   ; The reason, a string
-  type)    ; Either 'test-passed, type of condition, or 'test-failure
+  status)    ; Either :ok, :timeout, :overflow, or :error
 
 ;; --- 2. SAFETY MODULE ---
 (defparameter *forbidden-symbols*
@@ -44,7 +44,7 @@
     (values t nil)))
 
 (defun safe-read (output-string)
-  "Scans a string for the (:OK . value) marker, ignoring noise."
+  "Scans a string for the (:OK ...)  marker, ignoring noise."
   (with-input-from-string (s output-string)
     (loop for form = (handler-case (read s nil :eof)
                        (error () :junk)) ; Skips student print statements or typos
@@ -53,7 +53,9 @@
             return form)))
 
 ;; --- 3. EXECUTION ENGINE ---
-(defparameter *mem-limit-mb* 256)
+
+(defparameter *stack-limit-mb* 4)   ; Small stack to catch recursion fast
+(defparameter *heap-limit-mb* 256)  ; Enough for small tasks, safe from "fork-bombs"
 
 (defun %build-payload (form student-path timeout)
   "Generates the string of code to be passed to the subprocess."
@@ -66,18 +68,19 @@
                                (a1 (eval (second expr)))
                                (a2 (third expr))
                                (result (funcall op a1 a2)))
-                          (format t \"~%(:OK ~~S ~~S)~%\" result a1)))
+                          (format t \"~%(:OK :PASSED-P ~~S :GOT ~~S :EXPECTED ~~S)~%\" result a1 a2)))
                     (storage-condition () (uiop:quit 101))
                     (error (e) (progn (format *error-output* \"~~A\" e) 
                                       (uiop:quit 102)))))"
-                   student-path timeout form))
+          student-path timeout form))
 
 (defun %run-os-process (lisp-code timeout)
   "Handles the low-level UIOP system call."
   (handler-case
       (uiop:run-program 
        (list "sbcl"
-             "--dynamic-space-size" (write-to-string *mem-limit-mb*)
+             "--dynamic-space-size" (write-to-string *heap-limit-mb*)
+             "--control-stack-size" (write-to-string *stack-limit-mb*)             
              "--noinform"
              "--non-interactive"
              "--eval" lisp-code "--quit")
@@ -93,39 +96,45 @@
   "Main entry point: Validates, executes, and reports."
   (let ((student-code-path (truename path)))
     (multiple-value-bind (safe-p forbidden-item) (check-safety student-code-path)
-      (if (not safe-p)
-          (make-execution-result 
-           :status :security-violation
-           :log (format nil "Security Error: Found ~A" forbidden-item))
-          
-          (let ((payload (%build-payload form student-code-path timeout)))
-            (multiple-value-bind (stdout stderr exit-code) 
-                (%run-os-process payload timeout)
-              (let ((status (cond ((null exit-code) :timeout)
-                                  ((= exit-code 0)   :ok)
-                                  ((= exit-code 101) :overflow)
-                                  (t                 :error)))
-                    (result (handler-case (safe-read stdout) (error () nil))))
-                (make-execution-result 
-                 :status status
-                 :value  (when (eq status :ok)
-                           (if (eq (car result) :ok)
-                               (cdr result)
-                               (format nil "STUDENT ERROR: ~A" (cdr result))))
-                 :log    (if (eq status :ok) stdout stderr)
-                 :code   exit-code))))))))
+      (cond ((eq forbidden-item :read-error)
+             (make-execution-result
+              :status :error
+              :log (format nil "Read Error: Unbalanced parentheses or invalid character in program file ~A" path)))
+            ((not safe-p)
+             (make-execution-result 
+              :status :security-violation
+              :log (format nil "Security Error: Found ~A" forbidden-item)))
+            (t
+             (let ((payload (%build-payload form student-code-path timeout)))
+               (multiple-value-bind (stdout stderr exit-code) 
+                   (%run-os-process payload timeout)
+                 (format t "~% EXIT CODE: ~a" exit-code)
+                 (let ((status (cond ((= exit-code 1)   :timeout)
+                                     ((= exit-code 0)   :ok)
+                                     ((= exit-code 101) :overflow)
+                                     (t                 :error)))
+                       (result (handler-case (safe-read stdout) (error () nil))))
+                   (make-execution-result 
+                    :status status
+                    :value  (when (eq status :ok)
+                              (if (eq (car result) :ok)
+                                  (cdr result)
+                                  (format nil "STUDENT ERROR: ~A" (getf (cdr result) :got))))
+                    :log    (if (eq status :ok) stdout stderr)
+                    :code   exit-code)))))))))
 
 (defun report-result (result expected form)
-  (let* ((passed  (execution-result-value result)) 
-         (err-type (if (typep result 'condition) (type-of result) 'test-failure)))
+  (let ((passed (getf (execution-result-value result) :passed-p)))
     (make-test-result 
      :passed-p passed
      :expr form
      :reason (cond (passed "Passed")
                    ((eq :timeout (execution-result-status result)) "Execution Timed Out.")
                    ((eq :overflow (execution-result-status result)) "Memory Overflow.")
-                   ((not passed) (format nil "Expected ~S but got ~S" expected result)))
-     :type (if passed 'test-passed err-type))))
+                   ((eq :error (execution-result-status result)) (execution-result-log result))
+                   ((not passed)
+                    (format nil "Expected ~S but got ~S" expected (getf (execution-result-value result) :GOT))))
+     :status (execution-result-status result))))
 
 (defmacro is (expr student-path)
   "Each 'is' now requires the path to the student's source file."
@@ -150,13 +159,14 @@
           :feedback (mapcar (lambda (f)
                               (list :expr (test-result-expr f)
                                     :reason (test-result-reason f)
-                                    :type (test-result-type f)))
+                                    :status (test-result-status f)))
                             failures))))
 
 ;; 1. Define the test suite
 (test my-autograder-test (path)
   (is (equal (fact 0) 1) path)
-  (is (equal (fact 3) 2) path))
+  (is (equal (fact 4) 24) path)
+  (is (equal (fact 3) 6) path))
 
 ;; 2. Run it against a specific file
 (defun run-grading-session (student-file-path)
