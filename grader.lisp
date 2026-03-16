@@ -25,6 +25,7 @@
           (push (cons func-name violations) report))))
     report))
 
+#|
 (defun summarize-results (q-label results)
   "Aggregates FiveAM result objects into a summarized report."
   (let ((total (length results))
@@ -43,6 +44,7 @@
                                     :reason (fiveam::reason f)
                                     :type (type-of f)))
                             failures))))
+|#
 
 (defun critique-student-solution-style (sol)
   (let ((output (with-output-to-string (*standard-output*)
@@ -53,7 +55,7 @@
     (if (search "----" output :test #'char-equal)
         (format t "The suggestions below your code can ~%help you write more 'Lisp-y' solutions:~%~%~A" output)
         (format t "No idiomatic improvements suggested.~%~%~A" output))))
-
+#|
 (defun grade-student (student-file q-label fname kind)
   "Loads the student's program file in the sandbox,
    depending on KIND runs the given or hidden fiveam test cases, 
@@ -68,6 +70,17 @@
     
     ;; 2. Execute the pre-compiled runner
     (let* ((raw-results (funcall runner-name))
+           (summary (summarize-results q-label raw-results)))
+      summary)))
+|#
+
+(defun grade-student (student-file q-label fname kind)
+  "Loads the student's program file in the tester sandbox,
+   depending on KIND runs the given or hidden fiveam test cases, 
+   and collects the results"
+  (let ((runner-name (intern (format nil "~A-~A-~A-TEST" q-label fname kind) *tester-package*)))    
+    ;; Execute the pre-compiled runner
+    (let* ((raw-results (funcall runner-name student-file))
            (summary (summarize-results q-label raw-results)))
       summary)))
 
@@ -87,8 +100,8 @@
         (calculate-weighted-score (getf score-history :violation-score) rounded-sim)
       (let ((feedback (generate-similarity-report case-type 
                                                   (append (list :similarity-bonus-score final-score) score-history) 
-                                                 rounded-sim 
-                                                 professor-solution)))
+                                                  rounded-sim 
+                                                  professor-solution)))
         (values feedback final-score)))))
 
 

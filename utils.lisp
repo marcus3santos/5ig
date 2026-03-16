@@ -6,7 +6,7 @@ malicious reader macros or resource exhaustion."
   (with-open-file (in file-path)
     (let ((*read-eval* nil)           ;; Prevents #. execution
           (*read-base* 10)            ;; Ensures standard decimal reading
-          (*package* (find-package :sandbox))
+          (*package* (find-package *tester-package*))
           ;; Prevent circularity bombs
           (*read-circle* nil))        
       (handler-case

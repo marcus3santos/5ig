@@ -5,9 +5,6 @@
 
 (in-package :sxm-compiler)
 
-(defparameter *parent-folder* "Gen-files/")
-
-
 (defstruct compiler-state
   tag-compilers   ;; hash-table
   metadata        ;; hash-table
@@ -47,22 +44,23 @@
         p
         (concatenate 'string p "/"))))
 
+#|
 (defun generate-fiveam-test-with-cleanup (kind q-label fname body)
   "Generates a namespaced FiveAM test and a cleanup runner for a specific question."
-  (let* ((target-sym (intern (format nil "~A" fname) :sandbox))
-         (test-name   (intern (format nil "~A-~A-~A-TEST" q-label fname kind) :sandbox))
-         (runner-name (intern (format nil "RUN-~A" test-name) :sandbox))
+  (let* ((target-sym (intern (format nil "~A" fname) *tester-package*))
+         (test-name   (intern (format nil "~A-~A-~A-TEST" q-label fname kind) *tester-package*))
+         (runner-name (intern (format nil "~A" test-name) *tester-package*))
          ;; Filter and normalize checks from the body
          (checks (remove-if-not (lambda (x) (eq (car x) :a-tag)) body)))
     
     `(progn
        ;; 1. Define the namespaced FiveAM Test
        (declaim (notinline ,target-sym))
-       (fiveam:test ,test-name
+       (test ,test-name (path)
          ,@(loop for check in checks
                  for call = (second check)
                  for expected = (third check)
-                 collect `(sandbox-utils:is-safe (equalp ,call ,expected) :timeout 2)))
+                 collect `(is (equalp ,call ,expected) path)))
 
        ;; 2. Define the Runner with Unwind-Protect
        (defun ,runner-name ()
@@ -71,9 +69,27 @@
               (fiveam:run ',test-name)
            ;; Cleanup: Forcefully remove the student's implementation
            (when (fboundp ',fname) (fmakunbound ',fname))
-           (when (boundp ',fname)  (makunbound ',fname))  ;; For global variables
+           (when (boundp ',fname)  (makunbound ',fname)) ;; For global variables
            ;; Clear plists to prevent 'property injection' between students
            (setf (symbol-plist ',fname) nil))))))
+|#
+
+(defun generate-fiveam-test-with-cleanup (kind q-label fname body)
+  "Generates a namespaced FiveAM test and a cleanup runner for a specific question."
+  (let* ((target-sym (intern (format nil "~A" fname) *tester-package*))
+         (test-name   (intern (format nil "~A-~A-~A-TEST" q-label fname kind) *tester-package*))
+         (runner-name (intern (format nil "~A" test-name) *tester-package*))
+         ;; Filter and normalize checks from the body
+         (checks (remove-if-not (lambda (x) (eq (car x) :a-tag)) body)))    
+    `(progn
+       (declaim (notinline ,target-sym))
+       (,(intern "TEST" *tester-package*) ,test-name (,(intern "PATH" *tester-package*))
+         ,@(loop for check in checks
+                 for call = (second check)
+                 for expected = (third check)
+                 collect `(,(intern "IS" *tester-package*)
+                           (equalp ,call ,expected)
+                           ,(intern "PATH" *tester-package*)))))))
 
 (defun register-core-tags (table)
   "Registers the functions created by the deftag macro in the hash table
@@ -212,14 +228,14 @@
                       (multiple-value-bind (body-text st)
                           (compile-node
                            `(:s-tag (:level 2 :title "WHAT YOU ARE ASKED")
-                                   (:p-tag "*NOTE*:")
-                                   (:ul-tag
-                                    (:li-tag ,str1)
-                                    (:li-tag "You may create helper functions in your program file. ")
-                                    (:li-tag "To ensure your solution is in the correct folder and passes the test cases shown in the examples below,  type the following expression on the REPL:"
-                                            (:p-tag (:cb-tag (:language "lisp")
-                                                           ,str2))))
-                                   ,@body)
+                                    (:p-tag "*NOTE*:")
+                                    (:ul-tag
+                                     (:li-tag ,str1)
+                                     (:li-tag "You may create helper functions in your program file. ")
+                                     (:li-tag "To ensure your solution is in the correct folder and passes the test cases shown in the examples below,  type the following expression on the REPL:"
+                                              (:p-tag (:cb-tag (:language "lisp")
+                                                               ,str2))))
+                                    ,@body)
                            state) 
                         (setf (gethash q-label-key (compiler-state-metadata st))
                               (cons (list :whats-asked body-text)
@@ -284,7 +300,7 @@
                     (values
                      (if (getf (compiler-state-env state) :in-hdn-p)
                          ""
-                         (let ((*package* (find-package :sandbox)))
+                         (let ((*package* (find-package *tester-package*)))
                            (format nil "~%#+BEGIN_SRC lisp~%The expression below~%~%  ~s~%~%should evaluate to~%~%  ~s~%#+END_SRC~%" 
                                    call (if (and (consp expected) (eq  (first expected) 'quote))
                                             (second expected)
@@ -406,7 +422,7 @@
    If :INCLUDE-HIDDEN is T then the hidden test cases and question solutions
    will be added to the data file."
   (let* (;;(fn-ext (pathname-type from))
-         (sxm-form (let ((form (let ((*package* (find-package :sandbox)))
+         (sxm-form (let ((form (let ((*package* (find-package *tester-package*)))
                                  (with-open-file (in from) 
                                    (read in)))))
                      (if (string= (string-upcase (symbol-name (car form))) "DOC")

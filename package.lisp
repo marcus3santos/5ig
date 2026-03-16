@@ -1,30 +1,21 @@
 ;;;; package.lisp
 (in-package :cl-user)
 
-(defpackage #:sandbox-utils
-  (:use #:cl)
-  (:export #:is-safe))
-
-(defpackage #:sandbox
-  (:use #:cl #:fiveam #:sandbox-utils))
+(defpackage #:tester
+  (:use #:cl #:utils)
+  (:export #:summarize-results
+           *tester-package*))
 
 (defpackage #:utils
-  (:use #:cl)
+  (:use #:cl #:tester)
   (:export #:read-form-and-intern
            #:with-package
            #:add-prefix-to-symbol-in-form
            #:safe-read-student-code
            #:get-call-graph))
 
-(defpackage #:sxm-compiler
-  (:nicknames #:sxm)
-  (:use #:cl
-        #:sandbox-utils
-        #:fiveam)
-  (:export #:gen-exam-files))
-
 (defpackage #:gensymifier
-  (:use #:cl )
+  (:use #:cl)
   (:export #:gensymify
            #:normalize-gensyms))
 
@@ -33,8 +24,9 @@
   (:export #:normalize
            #:calc-similarity-score))
 
+
 (defpackage #:grader
-  (:use #:cl #:utils)
+  (:use #:cl #:utils #:tester)
   (:export #:used-forbidden-function-p
            #:grade-student
            #:check-assessment-violations
@@ -46,5 +38,12 @@
         #:sxm-compiler
         #:utils
         #:grader
-        #:similarity)
+        #:similarity
+        #:tester)
+  (:export #:gen-exam-files
+           *parent-folder*))
+
+(defpackage #:sxm-compiler
+  (:nicknames #:sxm)
+  (:use #:cl #:5ig)
   (:export #:gen-exam-files))

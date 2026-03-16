@@ -7,11 +7,11 @@
   :license  "Specify license here"
   :version "0.0.1"
   :serial t
-  :depends-on (:fiveam :lisp-critic :sb-concurrency)
+  :depends-on (:lisp-critic)
   :components ((:file "package")
-               (:file "sandbox-utils")
                (:file "utils")
                (:file "similarity-scorer")
                (:file "sxm")
+               (:file "testing")
                (:file "grader")
                (:file "5ig")))

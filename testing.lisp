@@ -1,3 +1,10 @@
+(in-package :tester)
+
+;; The package for regression testing
+
+(defparameter *tester-package* (find-package :tester))
+
+
 ;;;; Modular Lisp Sandbox Runner
 
 (defconstant +timeout+ 0.5)
@@ -66,7 +73,7 @@
                         (let* ((expr (quote ~S))
                                (op (first expr))
                                (a1 (eval (second expr)))
-                               (a2 (third expr))
+                               (a2 (eval (third expr)))
                                (result (funcall op a1 a2)))
                           (format t \"~%(:OK :PASSED-P ~~S :GOT ~~S :EXPECTED ~~S)~%\" result a1 a2)))
                     (storage-condition () (uiop:quit 101))
@@ -108,7 +115,6 @@
              (let ((payload (%build-payload form student-code-path timeout)))
                (multiple-value-bind (stdout stderr exit-code) 
                    (%run-os-process payload timeout)
-                 (format t "~% EXIT CODE: ~a" exit-code)
                  (let ((status (cond ((= exit-code 1)   :timeout)
                                      ((= exit-code 0)   :ok)
                                      ((= exit-code 101) :overflow)
@@ -125,6 +131,7 @@
 
 (defun report-result (result expected form)
   (let ((passed (getf (execution-result-value result) :passed-p)))
+    (format t "~:[f~;.~]" passed)
     (make-test-result 
      :passed-p passed
      :expr form
@@ -162,6 +169,8 @@
                                     :status (test-result-status f)))
                             failures))))
 
+#|
+
 ;; 1. Define the test suite
 (test my-autograder-test (path)
   (is (equal (fact 0) 1) path)
@@ -175,3 +184,4 @@
 
 ;; Example Call:
 ;; (run-grading-session #P"/tmp/student123/solution.lisp")
+|#

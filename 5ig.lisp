@@ -7,6 +7,9 @@
 (defparameter *assessment-data-folder* (merge-pathnames (make-pathname :directory '(:relative "quicklisp" "local-projects" "5ig" "Assessment-data"))
                                                         (user-homedir-pathname)))
 
+;; Where the exam files are generated
+
+(defparameter *parent-folder* "Gen-files/")
 
 (defun q-label-p (label)
   (let ((str (symbol-name label)))
@@ -16,7 +19,7 @@
 (defun get-assessment-test-case-data (assessment-data-file)
   "Return assoc list (:qi <tagged-data>) where :qi is a question label and
    <tagged-data> are forms of the kind (:tag <data>)"
-  (let* ((assessment-data (with-package :sandbox
+  (let* ((assessment-data (with-package *tester-package*
                             (with-open-file (in assessment-data-file)
                               (read in)))))
     (mapcar (lambda (qdata)
@@ -42,7 +45,7 @@
    given test cases, and hidden test cases.
 
    Additionally, it performs a side effect: it interns the 'asked-function' symbols 
-   into the :SANDBOX package and makes them accessible to packages that use it.
+   into the :TESTER package and makes them accessible to packages that use it.
 
    ### Arguments:
    * ASSESSMENT-DATA-FILE: A file path or designator containing the assessment 
@@ -66,20 +69,20 @@
                                         :solutions (rest (assoc :solutions (rest (assoc q assessment-data))))))
                                 q-labels-list)))
     (mapc (lambda (d)
-            (export (list (intern (symbol-name (getf (rest d) :asked-function)) :sandbox)) :sandbox))
+            (export (list (intern (symbol-name (getf (rest d) :asked-function)) *tester-package*)) *tester-package*))
           testcase-data)
 
     testcase-data))
 
-(defun reset-sandbox-package ()
-  (let ((pkg (find-package :sandbox)))
-    (when pkg
-      ;; Unuse everything to break links
-      (unuse-package :sandbox pkg)
-      ;; Delete and recreate or just unintern all symbols
-      (do-symbols (s pkg)
-        (unintern s pkg)))))
+(defun reset-tester-package ()
+  (when pkg
+    ;; Unuse everything to break links
+    (unuse-package *tester-package* pkg)
+    ;; Delete and recreate or just unintern all symbols
+    (do-symbols (s pkg)
+      (unintern s pkg))))
 
+#|
 (defun test-grade-student (student-file assessment-data-file q-label)
   "Evaluates metadata in the sandbox package and executes the grade."
   (reset-sandbox-package)
@@ -91,10 +94,11 @@
     (with-package :sandbox
       ;; EVAL compiles/defines the test and runner in this package
       (eval given-testcases-metadata)
-     ;; 2. Perform the grading
+      ;; 2. Perform the grading
       ;; grade-student uses (intern (format ...)) to find the runner
       ;; in the *package* where it is called.
       (grade-student student-file q-label fname 'given))))
+|#
 
 (defun derive-assessment-data-file (solution-file-path)
   "Derives the assessment data file path from the solution file path."
@@ -102,16 +106,16 @@
          (assessment-data-file (format nil "~a~a.data" *assessment-data-folder* assessment-folder-name)))
     assessment-data-file))
 
-(defun compile-test-cases-and-runner (test-cases-and-runner)
+(defun compile-test-cases (test-name test-form)
   "Compiles the fiveam test and its runner. The argument is a progn 
    containing a fiveam test and its checks and the defun for the 
    runner that runs the test and clears up the name space of the 
    tested functions."
-  (with-package :sandbox
+  (with-package *tester-package*
     ;; Mute redefinition warnings during EVAL
     (handler-bind ((style-warning #'muffle-warning)
                    (warning #'muffle-warning))
-      (eval test-cases-and-runner))))
+      (eval test-form))))
 
 
 ;; --- Supporting Sub-functions ---
@@ -120,6 +124,7 @@
   "Encapsulates the reading and analysis of student code.
    VIOLATIONS will be nil if the student's code triggers
    a loading error."
+  
   (let* ((program    (safe-read-student-code file))
          (forbidden  (getf (getf tc-data :forbidden-symbols) :symbols))
          (graph      (get-call-graph fname program))
@@ -201,7 +206,7 @@
          (fname          (getf tc-data :asked-function))
          (solutions      (getf tc-data :solutions))
          ;; 1. Execute Functional Testing
-         (summary        (with-package :sandbox
+         (summary        (with-package *tester-package*
                            (grade-student student-file question-label fname testcase-type)))
          (score-history (list :functional-score (getf summary :score))))
     
@@ -250,10 +255,10 @@
          (q-label (intern (string-upcase (pathname-name a#)) :keyword))
          (assessment-test-case-data (process-assessment-test-case-data assessment-data-file (list q-label)))
          (q-testcase-data (assoc q-label assessment-test-case-data))
-         (testcases-metadata (getf (rest q-testcase-data) kind)))
-
+         (testcases-metadata (getf (rest q-testcase-data) kind))
+         (test-name (second (third testcases-metadata))))
     ;; Compiles test cases and the test cases runner
-    (compile-test-cases-and-runner testcases-metadata)
+    (compile-test-cases test-name testcases-metadata)
     (orchestrate-grading-of-one-solution a# q-testcase-data kind)))
 
 (defun orchestrate (assessment-folder assessment-name)
