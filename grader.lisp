@@ -25,27 +25,6 @@
           (push (cons func-name violations) report))))
     report))
 
-#|
-(defun summarize-results (q-label results)
-  "Aggregates FiveAM result objects into a summarized report."
-  (let ((total (length results))
-        (passed (count-if (lambda (res) 
-                            (typep res 'fiveam::test-passed)) 
-                          results))
-        (failures (remove-if (lambda (res) 
-                               (typep res 'fiveam::test-passed)) 
-                             results)))
-    (list :q-label q-label
-          :score (if (zerop total) 0 (float (* 100   (/ passed total))))
-          :stats (list :total total :passed passed :failed (length failures))
-          ;; Map the failures into a clean feedback list
-          :feedback (mapcar (lambda (f)
-                              (list :expr (fiveam::test-expr f)
-                                    :reason (fiveam::reason f)
-                                    :type (type-of f)))
-                            failures))))
-|#
-
 (defun critique-student-solution-style (sol)
   (let ((output (with-output-to-string (*standard-output*)
                   (lisp-critic:critique-file sol))))
@@ -55,24 +34,6 @@
     (if (search "----" output :test #'char-equal)
         (format t "The suggestions below your code can ~%help you write more 'Lisp-y' solutions:~%~%~A" output)
         (format t "No idiomatic improvements suggested.~%~%~A" output))))
-#|
-(defun grade-student (student-file q-label fname kind)
-  "Loads the student's program file in the sandbox,
-   depending on KIND runs the given or hidden fiveam test cases, 
-   and collects the results"
-  (let ((runner-name (intern (format nil "RUN-~A-~A-~A-TEST" q-label fname kind) :sandbox)))
-    ;; 1. Load student code
-    
-    (handler-case (with-package :sandbox
-                    (load student-file))
-      (error (c) (return-from grade-student
-                   (list :q-label q-label :score 0.0 :error (format nil "Load Error: ~A" c)))))
-    
-    ;; 2. Execute the pre-compiled runner
-    (let* ((raw-results (funcall runner-name))
-           (summary (summarize-results q-label raw-results)))
-      summary)))
-|#
 
 (defun grade-student (student-file q-label fname kind)
   "Loads the student's program file in the tester sandbox,
@@ -126,10 +87,10 @@
   "Handles all string formatting based on the specific grading scenario."
   (case case-type
     (:bonus
-     (format nil "Final Score: ~,2F, [0 to ~A]~%Calculation: (+ CORRECTNESS (* MAX-STYLE-BONUS STYLE-SIMILARITY))~%~
+     (format nil "Final Score: ~,2F, [0 to ~A]~%Calculation: (+ CORRECTNESS (* MAX-STYLE-BONUS SIMILARITY))~%~
                   - Correctness: ~,2F, [0 to 100]~%~
                   - Max Style Bonus: ~,2F~%~
-                  - Logic Similarity: ~,2F, [0 to 1] >= threshold of ~a~%~
+                  - Similarity: ~,2F, [0 to 1] >= threshold of ~a~%~
                   - Reference Solution:~%~s"
              (getf score-history :similarity-bonus-score)
              (+ 100 +style-bonus-mark+)
@@ -140,7 +101,7 @@
     (:perfect-no-bonus
      (format nil "Final Score: ~,2F, [0 to 100]~%Calculation: (+ CORRECTNESS 0.0)~%~
                   - Correctness: ~,2F, [0 to 100]~%~
-                  - Note: Your code's logic similarity ~,2F is below ~,2F for bonus.~%~
+                  - Note: Your code's similarity ~,2F is below ~,2F for bonus.~%~
                   - Reference Solution:~%~s"
              (getf score-history :similarity-bonus-score)
              (getf score-history :violation-score)
@@ -148,26 +109,15 @@
              +similarity-threshold+
              prof-sol))
     (:standard
-     (format nil "Final Score: ~,2F, [0 to 100]~%Calculation: (MAX CORRECTNESS (+ (* CORRECTNESS CORRECTNESS-WEIGHT) (* STYLE STYLE-WEIGHT)))~%~
+     (format nil "Final Score: ~,2F, [0 to 100]~%Calculation: (MAX CORRECTNESS (+ (* CORRECTNESS CORRECTNESS-WEIGHT) (* SIMILARITY SIMILARITY-WEIGHT)))~%~
                     - Correctness: ~,2F, [0 to 100]~%~
                     - Correctness Weight: ~,2F, [0 to 1]~%~
-                    - Logic Similarity Weight: ~,2F, [0 to 1]~%~
-                    - Logic Similarity: ~,2F, [0 to 1]~%~
+                    - Similarity Weight: ~,2F, [0 to 1]~%~
+                    - Similarity: ~,2F, [0 to 1]~%~
                     - Reference Solution:~%~s"
              (getf score-history :similarity-bonus-score)
              (getf score-history :violation-score)
              +correctness-weight+
              +style-weight+
              similarity
-             prof-sol)
-     #|
-     (format nil "Calculation: (MAX CORRECTNESS (+ (* CORRECTNESS CORRECTNESS-WEIGHT) (* STYLE STYLE-WEIGHT)))~%~
-                    - Correctness: ~,2F, [0 to 100]~%~
-                    - Correctness weight: ~,2F, [0 to 1]~%~ 
-                    - Style Weight: ~,2F, [0 to 1]~%~
-                    - Similarity: ~,2F, [0 to 1]~%~
-                    - Reference Solution:~%~s"
-             correctness +correctness-weight+ +style-weight+ 
-             similarity  prof-sol)
-     |#
-     )))
+             prof-sol))))

@@ -1,6 +1,192 @@
 (in-package :gensymifier)
 
 (defun gensymify (form &optional venv fenv)
+  "Alpha-convert FORM by renaming all lexically bound variables to fresh GENSYMs."
+  (labels
+      ((vlookup (s venv)  (or (cdr (assoc s venv)) s))
+       (flookup (s fenv) (or (cdr (assoc s fenv)) s))
+
+       ;; Walk lambda list
+       (walk-lambda-list (lambda-list venv fenv)
+         (let ((new-venv venv)
+               (new-ll '()))
+           (dolist (item lambda-list)
+             (cond
+               ((member item '(&optional &key &rest &aux &allow-other-keys &whole &environment))
+                (push item new-ll))
+
+               ((symbolp item)
+                (let ((g (gensym (symbol-name item))))
+                  (setf new-venv (acons item g new-venv))
+                  (push g new-ll)))
+
+               ((consp item)
+                (let* ((var-part (car item))
+                       (var (if (consp var-part) (cadr var-part) var-part))
+                       (key-sym (if (consp var-part) (car var-part) nil))
+                       (init (cadr item))
+                       (sp (caddr item))
+                       (g-var (gensym (symbol-name var)))
+                       (g-sp (when sp (gensym (symbol-name sp))))
+                       ;; init is evaluated before binding
+                       (init* (walk init new-venv fenv)))
+                  (setf new-venv (acons var g-var new-venv))
+                  (when g-sp (setf new-venv (acons sp g-sp new-venv)))
+                  (push (if g-sp
+                            (list (if key-sym (list key-sym g-var) g-var) init* g-sp)
+                            (list (if key-sym (list key-sym g-var) g-var) init*))
+                        new-ll)))
+
+               (t (push item new-ll))))
+           (values (nreverse new-ll) new-venv)))
+
+       ;; Main walker
+       (walk (f venv fenv)
+         (cond
+           ;; symbols
+           ((symbolp f) (vlookup f venv))
+
+           ;; quoted forms
+           ((and (consp f) (eq (car f) 'quote)) f)
+
+           ;; function reference
+           ((and (consp f) (eq (car f) 'function))
+            (list 'function (flookup (cadr f) fenv)))
+
+           ;; LAMBDA
+           ((and (consp f) (eq (car f) 'lambda)
+                 (listp (second f)))
+            (destructuring-bind (head params &rest body) f
+              (multiple-value-bind (new-params venv*)
+                  (walk-lambda-list params venv fenv)
+                `(,head ,new-params
+                        ,@(mapcar (lambda (b) (walk b venv* fenv)) body)))))
+
+           ;; DEFUN
+           ((and (consp f) (eq (car f) 'defun)
+                 (listp (third f)))
+            (destructuring-bind (head name params &rest body) f
+              (multiple-value-bind (new-params venv*)
+                  (walk-lambda-list params venv fenv)
+                `(,head ,name ,new-params
+                        ,@(mapcar (lambda (b) (walk b venv* fenv)) body)))))
+
+           ;; FLET / LABELS
+           ((and (consp f) (member (car f) '(flet labels)))
+            (let* ((kind (car f))
+                   (defs (cadr f))
+                   (body (cddr f))
+                   (fnew (mapcar (lambda (d)
+                                   (cons (car d)
+                                         (gensym (symbol-name (car d)))))
+                                 defs))
+                   (fenv* (append fnew fenv)))
+              `(,kind
+                ,(mapcar
+                  (lambda (d)
+                    (destructuring-bind (name params &rest fbody) d
+                      (multiple-value-bind (new-params venv*)
+                          (walk-lambda-list params venv
+                                            (if (eq kind 'labels) fenv* fenv))
+                        `(,(flookup name fnew) ,new-params
+                          ,@(mapcar (lambda (b) (walk b venv* fenv*)) fbody)))))
+                  defs)
+                ,@(mapcar (lambda (b) (walk b venv fenv*)) body))))
+
+           ;; LET / LET*
+           ((and (consp f) (member (car f) '(let let*)))
+            (let ((is-star (eq (car f) 'let*))
+                  (bindings (cadr f))
+                  (body (cddr f))
+                  (new-bindings '())
+                  (venv-for-body venv))
+              (dolist (b bindings)
+                (let* ((var (if (consp b) (car b) b))
+                       (init (if (consp b) (cadr b) nil))
+                       (g (gensym (symbol-name var)))
+                       (init* (walk init (if is-star venv-for-body venv) fenv)))
+                  (setf venv-for-body (acons var g venv-for-body))
+                  (push `(,g ,init*) new-bindings)))
+              `(,(car f) ,(nreverse new-bindings)
+                ,@(mapcar (lambda (b) (walk b venv-for-body fenv)) body))))
+
+           ;; DO / DO*
+           ((and (consp f) (member (car f) '(do do*)))
+            (destructuring-bind (kind vars (test &rest results) &rest body) f
+              (let* ((new (mapcar (lambda (v)
+                                    (cons (car v)
+                                          (gensym (symbol-name (car v)))))
+                                  vars))
+                     (venv* (append new venv)))
+                `(,kind
+                  ,(mapcar
+                    (lambda (v)
+                      (cond ((null v) v)
+                            ((= (length v) 2)
+                             (destructuring-bind (var init) v
+                               `(,(cdr (assoc var new))
+                                 ,(walk init venv fenv))))
+                            ((= (length v) 3)
+                             (destructuring-bind (var init step) v
+                               `(,(cdr (assoc var new))
+                                 ,(walk init venv fenv)
+                                 ,(walk step venv* fenv))))
+                            (t v)))
+                    vars)
+                  (,(walk test venv* fenv)
+                   ,@(mapcar (lambda (r) (walk r venv* fenv)) results))
+                  ,@(mapcar (lambda (b) (walk b venv* fenv)) body)))))
+
+           ;; DOTIMES
+           ((and (consp f) (eq (car f) 'dotimes))
+            (destructuring-bind (_ (var count &optional result) &rest body) f
+              (let* ((g (gensym (symbol-name var)))
+                     (venv* (acons var g venv)))
+                `(dotimes (,g ,(walk count venv fenv)
+                              ,(walk result venv* fenv))
+                   ,@(mapcar (lambda (b) (walk b venv* fenv)) body)))))
+
+           ;; DOLIST
+           ((and (consp f) (eq (car f) 'dolist))
+            (destructuring-bind (_ (var list &optional result) &rest body) f
+              (let* ((g (gensym (symbol-name var)))
+                     (venv* (acons var g venv)))
+                `(dolist (,g ,(walk list venv fenv)
+                             ,(walk result venv* fenv))
+                   ,@(mapcar (lambda (b) (walk b venv* fenv)) body)))))
+
+           ;; MULTIPLE-VALUE-BIND
+           ((and (consp f) (eq (car f) 'multiple-value-bind))
+            (destructuring-bind (mvb vars expr &rest body) f
+              (let* ((new (mapcar (lambda (v)
+                                    (cons v (gensym (symbol-name v))))
+                                  vars))
+                     (venv* (append new venv)))
+                `(,mvb ,(mapcar #'cdr new) ,(walk expr venv fenv)
+                       ,@(mapcar (lambda (b) (walk b venv* fenv)) body)))))
+
+           ;; ✅ FIXED: always walk the head too
+           ((consp f)
+            (let ((head (car f)))
+              (cons (cond
+                      ((symbolp head) (flookup head fenv))   ;; FIX HERE
+                      (t (walk head venv fenv)))             ;; nested form
+                    (mapcar (lambda (x) (walk x venv fenv)) (cdr f)))))
+           #|
+           ((consp f)
+            (cons (walk (car f) venv fenv)
+                  (mapcar (lambda (x) (walk x venv fenv)) (cdr f))))
+           |#
+           (t f))))
+
+    (handler-case
+        (walk form venv fenv)
+      (error () form))))
+
+
+
+#|
+(defun gensymify (form &optional venv fenv)
   "Alpha-convert FORM by renaming all lexically bound variables to fresh GENSYMs.
 Handles complex lambda lists for DEFUN, LAMBDA, FLET, and LABELS."
   (labels
@@ -165,7 +351,7 @@ Handles complex lambda lists for DEFUN, LAMBDA, FLET, and LABELS."
     (handler-case
         (walk form venv fenv)
       (error () form))))
-
+|#
 (defun function-form-p (form)
   (and (consp form)                             ; Is it a list?
        (eq (car form) 'function)                ; Does it start with 'function'?

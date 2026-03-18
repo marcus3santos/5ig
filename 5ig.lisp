@@ -7,10 +7,6 @@
 (defparameter *assessment-data-folder* (merge-pathnames (make-pathname :directory '(:relative "quicklisp" "local-projects" "5ig" "Assessment-data"))
                                                         (user-homedir-pathname)))
 
-;; Where the exam files are generated
-
-(defparameter *parent-folder* "Gen-files/")
-
 (defun q-label-p (label)
   (let ((str (symbol-name label)))
     (and (not (string= str "QUESTIONS"))
@@ -144,8 +140,8 @@
   "Handles the final formatting of the grading results."
   ;; 1. Header
   (format stream "~%### Question ~A~%" (subseq (symbol-name label) 1))
-  (format stream "~%--- Functional Correctness Analysis (% of test cases passed) ---~%")
-  (format stream "~%Score: ~,2F, [0 to 100]" (getf score-history :functional-score))
+  (format stream "~%--- Functional Correctness Analysis ---~%")
+  (format stream "~%Score: ~,2F, [0 to 100] (% of test cases passed)" (getf score-history :functional-score))
   (unless (getf summary :error)
     ;; 2. Static Analysis / Violations
     (let ((violation-report (generate-forbidden-function-violation-report fname graph violations testcase-type)))

@@ -1,9 +1,9 @@
-#|
-(defpackage :sxm-compiler
-  (:use #:cl #:fiveam #:utils))
-|#
 
 (in-package :sxm-compiler)
+
+;; Where the exam files are generated
+
+(defparameter *parent-folder* "Gen-files/")
 
 (defstruct compiler-state
   tag-compilers   ;; hash-table

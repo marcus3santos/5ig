@@ -33,6 +33,12 @@
            #:critique-student-solution-style
            #:calc-final-mark))
 
+(defpackage #:sxm-compiler
+  (:nicknames #:sxm)
+  (:use #:cl #:tester)
+  (:export #:gen-exam-files
+           *parent-folder*))
+
 (defpackage #:5ig
   (:use #:cl
         #:sxm-compiler
@@ -40,10 +46,5 @@
         #:grader
         #:similarity
         #:tester)
-  (:export #:gen-exam-files
-           *parent-folder*))
-
-(defpackage #:sxm-compiler
-  (:nicknames #:sxm)
-  (:use #:cl #:5ig)
   (:export #:gen-exam-files))
+
