@@ -44,36 +44,6 @@
         p
         (concatenate 'string p "/"))))
 
-#|
-(defun generate-fiveam-test-with-cleanup (kind q-label fname body)
-  "Generates a namespaced FiveAM test and a cleanup runner for a specific question."
-  (let* ((target-sym (intern (format nil "~A" fname) *tester-package*))
-         (test-name   (intern (format nil "~A-~A-~A-TEST" q-label fname kind) *tester-package*))
-         (runner-name (intern (format nil "~A" test-name) *tester-package*))
-         ;; Filter and normalize checks from the body
-         (checks (remove-if-not (lambda (x) (eq (car x) :a-tag)) body)))
-    
-    `(progn
-       ;; 1. Define the namespaced FiveAM Test
-       (declaim (notinline ,target-sym))
-       (test ,test-name (path)
-         ,@(loop for check in checks
-                 for call = (second check)
-                 for expected = (third check)
-                 collect `(is (equalp ,call ,expected) path)))
-
-       ;; 2. Define the Runner with Unwind-Protect
-       (defun ,runner-name ()
-         (unwind-protect
-              ;; Run and return the list of result objects
-              (fiveam:run ',test-name)
-           ;; Cleanup: Forcefully remove the student's implementation
-           (when (fboundp ',fname) (fmakunbound ',fname))
-           (when (boundp ',fname)  (makunbound ',fname)) ;; For global variables
-           ;; Clear plists to prevent 'property injection' between students
-           (setf (symbol-plist ',fname) nil))))))
-|#
-
 (defun generate-fiveam-test-with-cleanup (kind q-label fname body)
   "Generates a namespaced FiveAM test and a cleanup runner for a specific question."
   (let* ((target-sym (intern (format nil "~A" fname) *tester-package*))
