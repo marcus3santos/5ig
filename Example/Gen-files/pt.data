@@ -1,0 +1,176 @@
+((:Q2
+  (:SOLUTIONS
+   (:SOL
+    (DEFUN TESTER::SQUARE-EVENS (TESTER::LST)
+      (COND ((NULL TESTER::LST) NIL)
+            ((EVENP (CAR TESTER::LST))
+             (CONS (* (CAR TESTER::LST) (CAR TESTER::LST))
+                   (TESTER::SQUARE-EVENS (CDR TESTER::LST))))
+            (T (TESTER::SQUARE-EVENS (CDR TESTER::LST))))))
+   (:SOL
+    (DEFUN TESTER::SQUARE-EVENS (TESTER::LST)
+      (LOOP TESTER::FOR TESTER::X TESTER::IN TESTER::LST
+            WHEN (EVENP TESTER::X)
+            TESTER::COLLECT (* TESTER::X TESTER::X))))
+   (:SOL
+    (DEFUN TESTER::SQUARE-EVENS (TESTER::LST)
+      (MAPCAN
+       (LAMBDA (TESTER::X)
+         (IF (EVENP TESTER::X)
+             (LIST (* TESTER::X TESTER::X))
+             NIL))
+       TESTER::LST))))
+  (:WHATS-ASKED "
+** WHAT YOU ARE ASKED
+
+
+*NOTE*:
+- You are required to write the solutions for the parts of this question in the lisp program file *~/pt-vB/q2.lisp* .
+- You may create helper functions in your program file. 
+- To ensure your solution is in the correct folder and passes the test cases shown in the examples below,  type the following expression on the REPL:
+
+#+BEGIN_SRC lisp
+(cg:chk-my-solution \"~/pt-vB/q2.lisp\")
+#+END_SRC
+
+Write a function SQUARE-EVENS that takes a list of integers and returns a new list containing the squares of only the even numbers in the original list, maintaining their relative order. 
+
+*Constraint*: You are forbidden from using REVERSE or APPEND. You must build the list in the correct order using recursion or iterative collection.
+
+#+BEGIN_SRC lisp
+The expression below
+
+  (SQUARE-EVENS '(1 2 3 4 5 6))
+
+should evaluate to
+
+  (4 16 36)
+#+END_SRC
+
+#+BEGIN_SRC lisp
+The expression below
+
+  (SQUARE-EVENS '(1 3 5))
+
+should evaluate to
+
+  NIL
+#+END_SRC
+
+#+BEGIN_SRC lisp
+The expression below
+
+  (SQUARE-EVENS 'NIL)
+
+should evaluate to
+
+  NIL
+#+END_SRC
+")
+  (:HIDDEN
+   (PROGN
+    (DECLAIM (NOTINLINE TESTER::SQUARE-EVENS))
+    (TESTER::TEST TESTER::Q2-SQUARE-EVENS-HIDDEN-TEST
+        (TESTER::PATH)
+      (TESTER::IS (EQUALP (TESTER::SQUARE-EVENS '(2 -4 0)) '(4 16 0))
+                  TESTER::PATH)
+      (TESTER::IS (EQUALP (TESTER::SQUARE-EVENS '(10 11 12)) '(100 144))
+                  TESTER::PATH))))
+  (:GIVEN
+   (PROGN
+    (DECLAIM (NOTINLINE TESTER::SQUARE-EVENS))
+    (TESTER::TEST TESTER::Q2-SQUARE-EVENS-GIVEN-TEST
+        (TESTER::PATH)
+      (TESTER::IS (EQUALP (TESTER::SQUARE-EVENS '(1 2 3 4 5 6)) '(4 16 36))
+                  TESTER::PATH)
+      (TESTER::IS (EQUALP (TESTER::SQUARE-EVENS '(1 3 5)) 'NIL) TESTER::PATH)
+      (TESTER::IS (EQUALP (TESTER::SQUARE-EVENS 'NIL) 'NIL) TESTER::PATH))))
+  (:ASKED-FUNCTION TESTER::SQUARE-EVENS)
+  (:FORBIDDEN-SYMBOLS :PENALTY 75 :SYMBOLS
+   (REVERSE NREVERSE APPEND CONCATENATE)))
+ (:FNAMES (TESTER::SQUARE-EVENS TESTER::DOT-PRODUCT-LIST))
+ (:Q1
+  (:SOLUTIONS
+   (:SOL
+    (DEFUN TESTER::MULTIPLY-RECORDS (TESTER::A TESTER::B)
+      (* TESTER::A TESTER::B))
+    (DEFUN TESTER::DOT-PRODUCT-LIST (TESTER::L1 TESTER::L2)
+      (MAPCAR #'TESTER::MULTIPLY-RECORDS TESTER::L1 TESTER::L2)))
+   (:SOL
+    (DEFUN TESTER::MULTIPLY-RECORDS (TESTER::A TESTER::B)
+      (* TESTER::A TESTER::B))
+    (DEFUN TESTER::DOT-PRODUCT-LIST (TESTER::L1 TESTER::L2)
+      (IF (NULL TESTER::L1)
+          NIL
+          (CONS (TESTER::MULTIPLY-RECORDS (CAR TESTER::L1) (CAR TESTER::L2))
+                (TESTER::DOT-PRODUCT-LIST (CDR TESTER::L1)
+                 (CDR TESTER::L2))))))
+   (:SOL
+    (DEFUN TESTER::DOT-PRODUCT-LIST (TESTER::L1 TESTER::L2)
+      (LABELS ((TESTER::MULTIPLY-RECORDS (TESTER::X TESTER::Y)
+                 (* TESTER::X TESTER::Y)))
+        (LOOP TESTER::FOR TESTER::A TESTER::IN TESTER::L1
+              TESTER::FOR TESTER::B TESTER::IN TESTER::L2
+              TESTER::COLLECT (TESTER::MULTIPLY-RECORDS TESTER::A
+                               TESTER::B))))))
+  (:WHATS-ASKED "
+** WHAT YOU ARE ASKED
+
+
+*NOTE*:
+- You are required to write the solutions for the parts of this question in the lisp program file *~/pt-vB/q1.lisp* .
+- You may create helper functions in your program file. 
+- To ensure your solution is in the correct folder and passes the test cases shown in the examples below,  type the following expression on the REPL:
+
+#+BEGIN_SRC lisp
+(cg:chk-my-solution \"~/pt-vB/q1.lisp\")
+#+END_SRC
+
+Write a Common Lisp function called DOT-PRODUCT-LIST that takes two lists of numbers of equal length. The function should return a list where each element is the product of the numbers at that position. 
+
+In your implementation, you must write and use a helper function called MULTIPLY-RECORDS that takes two numbers and returns their product. You may implement this as a standalone function or locally using LABELS.
+
+#+BEGIN_SRC lisp
+The expression below
+
+  (DOT-PRODUCT-LIST '(1 2 3) '(4 5 6))
+
+should evaluate to
+
+  (4 10 18)
+#+END_SRC
+
+#+BEGIN_SRC lisp
+The expression below
+
+  (DOT-PRODUCT-LIST 'NIL 'NIL)
+
+should evaluate to
+
+  NIL
+#+END_SRC
+")
+  (:HIDDEN
+   (PROGN
+    (DECLAIM (NOTINLINE TESTER::DOT-PRODUCT-LIST))
+    (TESTER::TEST TESTER::Q1-DOT-PRODUCT-LIST-HIDDEN-TEST
+        (TESTER::PATH)
+      (TESTER::IS
+       (EQUALP (TESTER::DOT-PRODUCT-LIST '(10 20) '(0.5 2)) '(5.0 40))
+       TESTER::PATH)
+      (TESTER::IS (EQUALP (TESTER::DOT-PRODUCT-LIST '(-1 -2) '(3 4)) '(-3 -8))
+                  TESTER::PATH)
+      (TESTER::IS (EQUALP (TESTER::DOT-PRODUCT-LIST '(100) '(100)) '(10000))
+                  TESTER::PATH))))
+  (:GIVEN
+   (PROGN
+    (DECLAIM (NOTINLINE TESTER::DOT-PRODUCT-LIST))
+    (TESTER::TEST TESTER::Q1-DOT-PRODUCT-LIST-GIVEN-TEST
+        (TESTER::PATH)
+      (TESTER::IS
+       (EQUALP (TESTER::DOT-PRODUCT-LIST '(1 2 3) '(4 5 6)) '(4 10 18))
+       TESTER::PATH)
+      (TESTER::IS (EQUALP (TESTER::DOT-PRODUCT-LIST 'NIL 'NIL) 'NIL)
+                  TESTER::PATH))))
+  (:ASKED-FUNCTION TESTER::DOT-PRODUCT-LIST))
+ (:QUESTIONS (:Q2 :Q1)) (:FOLDER "~/pt-vB/"))

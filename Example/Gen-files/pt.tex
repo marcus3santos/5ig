@@ -1,0 +1,128 @@
+% Created 2026-03-18 Wed 22:08
+% Intended LaTeX compiler: pdflatex
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\date{}
+\title{Practicum Test - Version B}
+\hypersetup{
+ pdfauthor={Marcus},
+ pdftitle={Practicum Test - Version B},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 30.2 (Org mode 9.7.11)}, 
+ pdflang={English}}
+\begin{document}
+
+\maketitle
+\section*{Instructions}
+\label{sec:org61a840d}
+
+
+\begin{itemize}
+\item \textbf{Test Duration}: 25 minutes
+\item Ensure all function names match the specification exactly.
+\item No external resources or AI assistance permitted.
+\end{itemize}
+\section*{Question 1}
+\label{sec:org726b496}
+
+\subsection*{WHAT YOU ARE ASKED}
+\label{sec:orgad393c7}
+
+
+\textbf{NOTE}:
+\begin{itemize}
+\item You are required to write the solutions for the parts of this question in the lisp program file \textbf{\textasciitilde{}/pt-vB/q1.lisp} .
+\item You may create helper functions in your program file.
+\item To ensure your solution is in the correct folder and passes the test cases shown in the examples below,  type the following expression on the REPL:
+\end{itemize}
+
+\begin{verbatim}
+(cg:chk-my-solution "~/pt-vB/q1.lisp")
+\end{verbatim}
+
+Write a Common Lisp function called DOT-PRODUCT-LIST that takes two lists of numbers of equal length. The function should return a list where each element is the product of the numbers at that position. 
+
+In your implementation, you must write and use a helper function called MULTIPLY-RECORDS that takes two numbers and returns their product. You may implement this as a standalone function or locally using LABELS.
+
+\begin{verbatim}
+The expression below
+
+  (DOT-PRODUCT-LIST '(1 2 3) '(4 5 6))
+
+should evaluate to
+
+  (4 10 18)
+\end{verbatim}
+
+\begin{verbatim}
+The expression below
+
+  (DOT-PRODUCT-LIST 'NIL 'NIL)
+
+should evaluate to
+
+  NIL
+\end{verbatim}
+\section*{Question 2}
+\label{sec:org5bdb2c2}
+
+\subsection*{WHAT YOU ARE ASKED}
+\label{sec:org628e5e8}
+
+
+\textbf{NOTE}:
+\begin{itemize}
+\item You are required to write the solutions for the parts of this question in the lisp program file \textbf{\textasciitilde{}/pt-vB/q2.lisp} .
+\item You may create helper functions in your program file.
+\item To ensure your solution is in the correct folder and passes the test cases shown in the examples below,  type the following expression on the REPL:
+\end{itemize}
+
+\begin{verbatim}
+(cg:chk-my-solution "~/pt-vB/q2.lisp")
+\end{verbatim}
+
+Write a function SQUARE-EVENS that takes a list of integers and returns a new list containing the squares of only the even numbers in the original list, maintaining their relative order. 
+
+\textbf{Constraint}: You are forbidden from using REVERSE or APPEND. You must build the list in the correct order using recursion or iterative collection.
+
+\begin{verbatim}
+The expression below
+
+  (SQUARE-EVENS '(1 2 3 4 5 6))
+
+should evaluate to
+
+  (4 16 36)
+\end{verbatim}
+
+\begin{verbatim}
+The expression below
+
+  (SQUARE-EVENS '(1 3 5))
+
+should evaluate to
+
+  NIL
+\end{verbatim}
+
+\begin{verbatim}
+The expression below
+
+  (SQUARE-EVENS 'NIL)
+
+should evaluate to
+
+  NIL
+\end{verbatim}
+\end{document}
