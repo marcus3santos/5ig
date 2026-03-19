@@ -2,4 +2,71 @@
 
 5ig Is a Grader for Common Lisp Programming assessments.
 
+* The Workflow
+
+The workflow involves the following steps:
+
+1. The instructor writes the assessment in s-expression markup (SXM).
+2. The instructor uses function GEN-EXAM-FILES to generate from the SXM file the necessary support
+   files, including the formatted questions translated to PDF and assessment-specific test
+   cases which will be later used to grade the students' solutions.
+4. Students complete the assessment created by the instructor,
+   providing their solutions to the given programming questions.
+5. The instructor uses function GRADE-EXAM to evaluate and grade the students'
+   solutions.
+The next sections explain each of these workflow steps.
+
+* Writing a Lisp Programming Assessment Using SXM
+
+Instructors write their Lisp assessments in SXM. This structured format simplifies parsing and enables
+better automation and tooling.
+
+** SXM Structure Overview
+
+See example here: [[https://github.com/marcus3santos/5ig/blob/main/Example/pt.sxm]]
+
+** Explanation of Fields
+
+- =:title= — Assessment title.
+- =:folder= — Directory path where students are required to save their solutions.
+- =:q= — A section describing an individual exercise or problem.
+  - =:title= — The question title, e.g.  `"Question"` or `"Exercise"`.
+  - =:number= — Integer identifier for the question.
+  - =:penalty= — (Optional) Penalty percentage for using forbidden functions.
+  - =:forbidden= — (Optional) List of forbidden functions in Lisp syntax.
+  - =:p= — a paragraph of text.
+  - =:wa= — A section describing what the student is being asked. It can contain:
+    - =(:p ...)= - paragraphs
+    - =(:tc ...)= - test cases
+    - =(:gvn ...)=- Node  containing given test assertions; they are translated to code that students can use to test their solutions during the test.
+    - =(:hdn ...)= - Node containing hidden test assertions; they are translated to code that CodeGrader will use to test the students' solutions after they complete the test.
+    - =(:sols ...)= - Node containing the question solution(s). 
+
+* Generating the Assessment Support Files
+
+Assuming the SXM description for your assessment is located in the file =~/tmp/assessment1.sxm=.
+
+#+begin_src lisp
+  CL-USER> (in-package :SXM)
+  ...
+  SXM> (gen-exam-files "~/tmp/assessment1.sxm" :include-hidden nil)
+  Generated assessment orgmode description file at: ~/tmp/assessment1.org
+  Generated assessment testing code at: ~/tmp/assessment1.data
+  SXM>
+#+end_src
+
+CodeGrader's GEN-EXAM-FILES function generates the following files within the `./Gen-files/` directory:
+
+- An Org mode file (=~/tmp/Gen-files/assessment1.org=) containing the assessment description.
+- A data file (=~/tmp/Gen-files/assessment1.data=) that CodeGrader utilizes for the automated grading of student solutions.
+- The HTML file generated from the Org-mode file
+- The PDF file generated from the Org-mode file
+*NOTE*: To include the hidden test cases in the data file, call GEN-EXAM-FILES setting :INCLUDE-HIDDEN to T.
+
+** Moving the assessment data file to its appropriate location
+
+Before the assessment, the instructor must ask IT staff to save the
+assessment data (.data) file in the *~/quicklisp/local-projects/Codegrader/Assessment-data/* directory.
+
+
 
