@@ -1,18 +1,19 @@
 ;;;; package.lisp
 (in-package :cl-user)
 
-(defpackage #:tester
-  (:use #:cl #:utils)
-  (:export #:summarize-results
-           *tester-package*))
 
 (defpackage #:utils
-  (:use #:cl #:tester)
+  (:use #:cl)
   (:export #:read-form-and-intern
            #:with-package
            #:add-prefix-to-symbol-in-form
            #:safe-read-student-code
            #:get-call-graph))
+
+(defpackage #:tester
+  (:use #:cl #:utils)
+  (:export #:summarize-results
+           *tester-package*))
 
 (defpackage #:gensymifier
   (:use #:cl)
