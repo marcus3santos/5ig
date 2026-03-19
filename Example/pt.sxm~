@@ -1,0 +1,437 @@
+(doc (:title "CPS305 - Data Structures - Practicum Test 2 - VERSION 2"
+      :folder "~/pt2-v2/")
+      (s (:level 1 :title "Instructions")
+        (ul
+         (li "*Test Duration*: 75 minutes")
+         (li "Save each solution in the corresponding folder/file as specified in each question.")
+         (li "Have your photo ID with you at all times during the test.")))
+     (q (:title "Question" :number 1)
+        (wa
+         (ol
+          (li "Write a Common Lisp function called LIST-OF-ARRAYS that takes two lists of integers of equal length as input. The function should return a list of arrays, where each array contains three elements: the corresponding integer from the first list, the corresponding integer from the second list, and their sum.
+
+In your implementation, you must write and use a helper function called CREATE-SUM-HELPER that takes two numbers as input and returns an array containing those two numbers and their sum."
+              (tc (:function list-of-arrays)
+                  (gvn 
+                   (a (list-of-arrays '(1 4 2) '(0 5 1))
+                      (list #(1 0 1) #(4 5 9) #(2 1 3)))
+                   (a (list-of-arrays () ()) ()))
+                  (hdn
+                   (a (list-of-arrays () ()) ())
+                   (a (list-of-arrays (list 1 2) (list 3 4)) (list #(1 3 4) #(2 4 6)))
+                   (a (list-of-arrays (list -1 2 -3) (list 4 3 -2)) (list #(-1 4 3) #(2 3 5) #(-3 -2 -5)))
+                   (a (list-of-arrays (list 10 20) (list 30 40)) (list #(10 30 40) #(20 40 60)))
+                   (a (list-of-arrays (list 5) (list 10)) (list #(5 10 15)))
+                   (a (list-of-arrays (list 2 4 6 8) (list 0 0 0 0)) (list #(2 0 2) #(4 0 4) #(6 0 6) #(8 0 8)))))
+              (sols
+               (sol
+                (defun create-sum-array-helper (a b)
+                  (make-array 3 :initial-contents (list a b (+ a b))))          
+                (defun list-of-arrays (l1 l2)
+                  (mapcar #'create-sum-array-helper l1 l2)))
+               (sol
+                (defun create-sum-array-helper (a b)
+                  (make-array 3 :initial-contents (list a b (+ a b))))
+                (defun list-of-arrays (a b &optional res)
+                  (if (null a) (reverse res)
+                      (list-of-arrays (cdr a) (cdr b) (cons (create-sum-array-helper (car a) (car b)) res)))))
+               (sol
+                (DEFUN LIST-OF-ARRAYS (LST1 LST2)
+                  (LABELS ((CREATE-ARRAY-SUM (A B)
+                             (LET ((ARRAY (MAKE-ARRAY 3)))
+                               (SETF (AREF ARRAY 0) A)
+                               (SETF (AREF ARRAY 1) B)
+                               (SETF (AREF ARRAY 2) (+ A B))
+                               ARRAY)))
+                    (LET ((RESULT nil) )
+                      (IF (AND (NULL LST1) (NULL LST2))
+                          NIL
+                          (DOTIMES (I (LENGTH LST1) (REVERSE RESULT))
+                            (PUSH (CREATE-ARRAY-SUM (NTH I LST1) (NTH I LST2)) RESULT)))))))
+               ;; This buffer is for text that is not saved, and for Lisp evaluation.
+               ;; To create a file, visit it with C-x C-f and enter text in its buffer.
+               ;; Solution 3: LOOP Macro (Modern Iterative Style)
+               (sol
+                (defun create-sum-array-helper (a b)
+                  (make-array 3 :initial-contents (list a b (+ a b))))
+                
+                (defun list-of-arrays (l1 l2)
+                  (loop for x in l1
+                        for y in l2
+                        collect (create-sum-array-helper x y))))
+
+               ;; Solution 4: Standard Linear Recursion (No optional parameters)
+               (sol
+                (defun create-sum-array-helper (a b)
+                  (make-array 3 :initial-contents (list a b (+ a b))))
+
+                (defun list-of-arrays (l1 l2)
+                  (if (null l1)
+                      nil
+                      (cons (create-sum-array-helper (car l1) (car l2))
+                            (list-of-arrays (cdr l1) (cdr l2))))))
+
+               ;; Solution 5: Internal Helper using LABELS
+               ;; Note: This satisfies the "write and use" requirement while keeping 
+               ;; the helper local to the scope of the main function.
+               (sol
+                (defun list-of-arrays (l1 l2)
+                  (labels ((create-sum-array-helper (a b)
+                             (make-array 3 :initial-contents (list a b (+ a b)))))
+                    (mapcar #'create-sum-array-helper l1 l2))))
+               )))))
+     
+     (q (:title "Question" :number 2 
+          :penalty 80 
+          :forbidden (REVERSE NREVERSE COPY-LIST COPY-ALIST))
+        (wa
+         (p "Write a Common Lisp function called DUPLICATE-ELEMENTS that takes a list as input and returns a new list where each element of the original list appears twice in order.")
+         (tc (:function duplicate-elements)
+             (gvn
+              (a (duplicate-elements '(1 2 3 4 5)) '(1 1 2 2 3 3 4 4 5 5))
+              (a (duplicate-elements '((a b) (b c))) '((a b) (a b) (b c) (b c)))
+              (a (duplicate-elements (list)) '()))
+             (hdn
+              (a (duplicate-elements (list)) '())
+              (a (duplicate-elements (list 1)) '(1 1))
+              (a (duplicate-elements (list (list 'a 'b 'd) (list 'b 'c 'd))) '((a b d) (a b d) (b c d) (b c d)))
+              (a (duplicate-elements (list 1 2 3 4 5 6 7 8 9 10)) '(1 1 2 2 3 3 4 4 5 5 6 6 7 7 8 8 9 9 10 10))))
+         (sols
+          (sol
+           (DEFUN DUPLICATE-ELEMENTS (LST)
+             (LET ((DUPE1 'NIL) (DUPE2 'NIL))
+               (DOLIST (I LST) (PUSH I DUPE1) (PUSH I DUPE1))
+               (DOLIST (I DUPE1 DUPE2) (PUSH I DUPE2)))))
+          (sol
+           (defun duplicate-elements (a)
+             (let ((res))
+               (do ((i (1- (length a)) (1- i)))
+                   ((< i 0) res)
+                 (push (nth i a) res)
+                 (push (nth i a) res)))))
+          ;; Solution 2: Standard Linear Recursion (No Optional Parameters)
+          ;; Very clean and "Lispy". It avoids the need for REVERSE entirely
+          ;; by performing the CONS operations after the recursive call returns.
+          (sol
+           (defun duplicate-elements (lst)
+             (if (null lst)
+                 nil
+                 (cons (car lst) 
+                       (cons (car lst) 
+                             (duplicate-elements (cdr lst)))))))
+          
+          ;; Solution 3: LOOP with APPEND
+          ;; Modern, idiomatic, and highly readable. LOOP's 'append' clause
+          ;; automatically maintains a pointer to the end of the list, 
+          ;; ensuring the result is in the correct order.
+          (sol
+           (defun duplicate-elements (lst)
+             (loop for x in lst
+                   append (list x x))))
+          
+          ;; Solution 4: MAPCAN
+          ;; Functional programming style. MAPCAN maps a function over the list
+          ;; and destructively splices the results together.
+          (sol
+           (defun duplicate-elements (lst)
+             (mapcan (lambda (x) (list x x)) lst)))
+          
+          ;; Solution 5: DO with Indexing (Backwards Pass)
+          ;; Accesses the list from the end using NTH to build the result 
+          ;; in a single pass without needing a reverse.
+          (sol
+           (defun duplicate-elements (lst)
+             (let ((res nil))
+               (do ((i (1- (length lst)) (1- i)))
+                   ((< i 0) res)
+                 (let ((val (nth i lst)))
+                   (setf res (cons val (cons val res)))))))))))
+      (q (:title "Question" :number 3)
+        (wa
+         (p "Write a Common Lisp function called AGGREGATE-STUDENT-GRADES that takes a list of student grade data as input. Each element in the list is a sublist containing a student name (a string) and a numerical grade (an integer). The function should aggregate the grades by student and return a hash table where each key is a student name and the corresponding value is the sum of the grades for that student. For example:")
+         (tc (:function aggregate-student-grades)
+             (gvn
+              (a (let* ((grade-data '(("Alice" 90) ("Bob" 85) ("Alice" 95)))
+                        (ht (aggregate-student-grades grade-data)))
+                    (and (equalp (gethash "Alice" ht) 185)
+                         (equalp (gethash "Bob" ht) 85)
+                         (= (hash-table-count ht) 2)))
+                 t))
+             (hdn
+              (a (let ((grade-data (list (list "Charlie" 75) (list "David" 80) (list "Charlie" 85))))
+                     (let ((ht (aggregate-student-grades grade-data)))
+                         (and (equalp (gethash "Charlie" ht) 160)
+                              (equalp (gethash "David" ht) 80)
+                              (= (hash-table-count ht) 2))))
+                 t)
+              (a (let ((grade-data (list )))
+                     (let ((ht (aggregate-student-grades grade-data)))
+                         (= (hash-table-count ht) 0)))
+                 t)
+              (a (let ((grade-data (list (list "E" 10) (list "F" 20) (list "G" 30) (list "E" 40) (list "F" 5) (list "G" 15))))
+                     (let ((ht (aggregate-student-grades grade-data)))
+                         (and (equalp (gethash "E" ht) 50)
+                              (equalp (gethash "F" ht) 25)
+                              (equalp (gethash "G" ht) 45)
+                              (= (hash-table-count ht) 3))))
+                 t)
+              (a (let ((grade-data (list (list "X" 10) (list "Y" 20) (list "Z" 30) (list "X" 10) (list "Y" 20) (list "Z" 30))))
+                     (let ((ht (aggregate-student-grades grade-data)))
+                         (and (equalp (gethash "X" ht) 20)
+                              (equalp (gethash "Y" ht) 40)
+                              (equalp (gethash "Z" ht) 60)
+                              (= (hash-table-count ht) 3))))
+                 t)))
+         
+         (sols
+          (sol
+           ;; Solution 1: Clean Procedural Style (The "Gold Standard" for 2nd Year)
+           ;; Uses meaningful names and the gethash default value to avoid 'if' blocks.
+           (defun aggregate-student-grades (grade-data)
+             (let ((ht (make-hash-table :test #'equal)))
+               (dolist (entry grade-data ht)
+                 (let ((name (first entry))
+                       (grade (second entry)))
+                   ;; Use 0 as default if the name isn't in the table yet
+                   (setf (gethash name ht) (+ (gethash name ht 0) grade)))))))
+
+          ;; Solution 2: Idiomatic Lisp Style (Using INCF)
+          ;; Students are often taught that (incf (gethash ...)) is the most "Lispy" way
+          ;; to update a counter or sum in a hash table.
+          (sol
+           (defun aggregate-student-grades (grade-data)
+             (let ((ht (make-hash-table :test #'equal)))
+               (dolist (entry grade-data)
+                 (incf (gethash (first entry) ht 0) (second entry)))
+               ht)))
+
+          ;; Solution 3: The LOOP Macro with Destructuring
+          ;; In second year, students learn LOOP. Destructuring (name grade) directly 
+          ;; in the loop is considered very good style.
+          (sol
+           (defun aggregate-student-grades (grade-data)
+             (let ((table (make-hash-table :test #'equal)))
+               (loop for (name grade) in grade-data
+                     do (incf (gethash name table 0) grade))
+               table)))
+          
+          ;; Solution 4: Using DESTRUCTURING-BIND
+          ;; This is excellent style for students to show they understand how to 
+          ;; unpack list data safely and clearly.
+          (sol
+           (defun aggregate-student-grades (grade-data)
+             (let ((ht (make-hash-table :test #'equal)))
+               (dolist (entry grade-data ht)
+                 (destructuring-bind (name grade) entry
+                   (incf (gethash name ht 0) grade))))))
+          
+          ;; Solution 5: Recursive Style (Tail-Recursive)
+          ;; For a Data Structures course, a recursive solution shows a strong 
+          ;; grasp of functional programming.
+          (sol
+           (defun aggregate-student-grades (grade-data)
+             (let ((ht (make-hash-table :test #'equal)))
+               (labels ((process (remaining)
+                          (when remaining
+                            (let ((current (car remaining)))
+                              (incf (gethash (first current) ht 0) (second current)))
+                            (process (cdr remaining)))))
+                 (process grade-data)
+                 ht))))
+          (sol
+           (defun aggregate-student-grades (gd)
+             (let ((ht (make-hash-table :test #'equal)))
+               (dolist (d gd)
+                 (let ((hs (gethash (car d) ht)))
+                   (if hs
+                       (setf (gethash (car d) ht) (+ (cadr d) hs))
+                       (setf (gethash (car d) ht) (cadr d)))))
+               ht)))
+          ;; Solution 1: Explicit Initialization (Clear 2nd Year Logic)
+          ;; Uses GETHASH to check for existence and handles the two cases separately.
+          (sol
+           (defun aggregate-student-grades (grade-data)
+             (let ((ht (make-hash-table :test #'equal)))
+               (dolist (entry grade-data ht)
+                 (let ((name (first entry))
+                       (grade (second entry)))
+                   (if (gethash name ht)
+                       (setf (gethash name ht) (+ (gethash name ht) grade))
+                       (setf (gethash name ht) grade)))))))
+
+          ;; Solution 2: Using GETHASH with the Optional "Present-p" Flag
+          ;; This is excellent style for students to show they understand that 
+          ;; GETHASH returns a second value indicating if the key was actually found.
+          (sol
+           (defun aggregate-student-grades (grade-data)
+             (let ((ht (make-hash-table :test #'equal)))
+               (dolist (entry grade-data ht)
+                 (let ((name (first entry))
+                       (grade (second entry)))
+                   (multiple-value-bind (current-total found-p) (gethash name ht)
+                     (if found-p
+                         (setf (gethash name ht) (+ current-total grade))
+                         (setf (gethash name ht) grade))))))))
+          
+          ;; Solution 3: LOOP Macro with conditional update
+          ;; Standard 2nd-year approach using the LOOP macro for clean iteration.
+          (sol
+           (defun aggregate-student-grades (grade-data)
+             (let ((ht (make-hash-table :test #'equal)))
+               (loop for (name grade) in grade-data
+                     do (if (gethash name ht)
+                            (incf (gethash name ht) grade)
+                            (setf (gethash name ht) grade)))
+               ht)))
+          
+          ;; Solution 4: Using DESTRUCTURING-BIND for readability
+          ;; Shows high-quality style by cleanly unpacking the sublists.
+          (sol
+           (defun aggregate-student-grades (grade-data)
+             (let ((ht (make-hash-table :test #'equal)))
+               (dolist (entry grade-data ht)
+                 (destructuring-bind (name grade) entry
+                   (let ((current (gethash name ht)))
+                     (if current
+                         (setf (gethash name ht) (+ current grade))
+                         (setf (gethash name ht) grade))))))))
+          
+          ;; Solution 5: Recursive Style (Post-order Initialization)
+          ;; Uses recursion to traverse the list, checking for the key at each step.
+          (sol
+           (defun aggregate-student-grades (grade-data)
+             (let ((ht (make-hash-table :test #'equal)))
+               (labels ((process (remaining)
+                          (when remaining
+                            (let* ((entry (first remaining))
+                                   (name (first entry))
+                                   (grade (second entry))
+                                   (existing (gethash name ht)))
+                              (if existing
+                                  (setf (gethash name ht) (+ existing grade))
+                                  (setf (gethash name ht) grade))
+                              (process (rest remaining))))))
+                 (process grade-data)
+                 ht)))))
+         (p "*HINT*: To use the student name (a string) as key, you will need to set the an appropriate comparison operator when creating the hash table, as follows ~(make-hash-table :test #'equal)~")))
+      (q (:title "Question" :number 4)
+        (wa
+         (p "Write a Common Lisp function called COUNT-LEAF-NODES that takes a tree as input and returns the total number of leaf nodes in that tree. A leaf node is a node that has no children.  The tree is represented as a list of lists, where the first element is the label (the root of that subtree). The remaining elements (if any) are subtrees, each written in the same list-of-lists format. For example, ~(A (B (E) (F)) (C (G)) (D))~ represents a tree where ~A~ is the root of the whole tree. The rest ~(B (E) (F))~, ~(C (G))~, and ~(D)~ are children subtrees of ~A~. See below:")
+         (cb (:language "shell")
+             "
+                                 A
+                             /   |   \\ 
+                            B    C    D
+                          /   \\  |
+                         E     F  G ")
+         (p "Below are examples of what COUNT-LEAF-NODES evaluates to when given a tree:")
+         (tc (:function count-leaf-nodes)
+             (gvn
+              (a (count-leaf-nodes '(A (B (D) (E)) (C (F)))) 3)
+              (a (count-leaf-nodes '(A (B (C)) (D) (E))) 3)
+              (a (count-leaf-nodes ()) 0))
+             (hdn
+              (a (count-leaf-nodes ()) 0)
+              (a (count-leaf-nodes (list 'F (list 'D (list 'A) (list 'E)) (list 'G (list 'I)))) 3)
+              (a (count-leaf-nodes (list 'X (list 'Y) (list 'Z (list 'A) (list 'B) (list 'C)) (list 'W))) 5)
+              (a (count-leaf-nodes (list 'A (list 'B) (list 'C) (list 'D))) 3)
+              (a (count-leaf-nodes (list 'A (list 'B (list 'C (list 'D))))) 1)))
+         (sols
+          (sol
+           (DEFUN COUNT-LEAF-NODES (TREE)
+              (COND ((ATOM TREE) 0) ((NULL TREE) 0) ((NULL (CDR TREE)) 1)
+                    (T
+                     (+ (COUNT-LEAF-NODES (CAR TREE))
+                        (COUNT-LEAF-NODES (CDR TREE)))))))
+          (sol
+           ;; Solution 1: Clean Recursive Style (Standard 2nd Year)
+           ;; Uses descriptive names and explicit base cases for empty trees and leaves.
+           (defun count-leaf-nodes (tree)
+             (cond ((null tree) 0)
+                   ((null (rest tree)) 1)
+                   (t (let ((count 0))
+                        (dolist (child (rest tree) count)
+                          (setf count (+ count (count-leaf-nodes child)))))))))
+          
+          ;; Solution 2: Functional Style using MAPCAR and REDUCE
+          ;; Demonstrates mapping a recursive function over a list of subtrees.
+          (sol
+           (defun count-leaf-nodes (tree)
+             (cond ((null tree) 0)
+                   ((null (rest tree)) 1)
+                   (t (reduce #'+ (mapcar #'count-leaf-nodes (rest tree)))))))
+          
+          ;; Solution 3: The LOOP Macro Version
+          ;; Uses the idiomatic LOOP 'sum' clause to aggregate recursive results.
+          (sol
+           (defun count-leaf-nodes (tree)
+             (if (null tree) 0
+                 (let ((children (rest tree)))
+                   (if (null children)
+                       1
+                       (loop for child in children
+                             sum (count-leaf-nodes child)))))))
+
+          ;; Solution 4: Mutual Recursion (Helper Function Style)
+          ;; Separates the node logic from the child-list traversal logic.
+          (sol
+           (defun count-leaf-nodes (tree)
+             (cond ((null tree) 0)
+                   ((null (rest tree)) 1)
+                   (t (count-children-helper (rest tree)))))
+           
+           (defun count-children-helper (children)
+             (if (null children)
+                 0
+                 (+ (count-leaf-nodes (first children))
+                     (count-children-helper (rest children))))))
+          
+          ;; Solution 5: Internal Recursion using LABELS
+          ;; Encapsulates child processing to keep the global namespace clean.
+          (sol
+           (defun count-leaf-nodes (tree)
+             (labels ((count-children-helper (subs)
+                        (if (null subs)
+                            0
+                            (+ (count-leaf-nodes (first subs))
+                                (count-children-helper (rest subs))))))
+               (cond ((null tree) 0)
+                     ((null (rest tree)) 1)
+                     (t (count-children-helper (rest tree)))))))))))
+
+(q (:title "Question" :number 1 
+         :penalty 80 
+         :forbidden (FIND POSITION MEMBER ASSOC RASSOC))
+        (wa
+         (p "Write a Common Lisp function called SEQ-SEARCH-LIST that takes two arguments: 
+a number $x$ and a list of integers $lst$. The function should return 
+the index (0-based) of the first occurrence of $x$ in $lst$, or NIL if $x$ is not found.")
+         (p "For example:")
+         (tc (:function seq-search-list)
+             (gvn
+              (a (seq-search-list 1 (list )) NIL) ; empty list
+              (a (seq-search-list 3 (list 1 2 3 4 5)) 2)
+              (a (seq-search-list 5 (list 5 7 10 7)) 0)
+              (a (seq-search-list 42 (list 1 2 3 4 5)) NIL))
+             (hdn
+              (a (seq-search-list 7 (list 7)) 0) ; single element found
+              (a (seq-search-list 9 (list 7)) NIL) ; single element not found
+              (a (seq-search-list 4 (list 1 2 3 4 4 4 5)) 3) ; multiple occurrences
+              (a (seq-search-list -3 (list -5 -4 -3 -2 -1)) 2) ; negative numbers
+              (a (seq-search-list 100 (list 10 20 30 40 50)) NIL)))))
+
+(q (:title "Question" :number 2 
+         :penalty 80 
+         :forbidden (REVERSE NREVERSE COPY-LIST COPY-ALIST))
+        (wa
+         (p "Write a Common Lisp function called DUPLICATE-LIST-WITH-QUEUE that takes a list as input and returns a new list that is a duplicate of the original. Your function must use a queue data structure to accomplish this. You should not use any built-in functions that copy or reverse lists.")
+         (tc (:function duplicate-list-with-queue)
+             (gvn
+              (a (duplicate-list-with-queue (list 1 2 3 4 5)) '(1 2 3 4 5))
+              (a (duplicate-list-with-queue (list (a b) (b c))) '((a b) (b c)))
+              (a (duplicate-list-with-queue (list )) '()))
+             (hdn
+              (a (duplicate-list-with-queue (list :a :b :c)) '(:a :b :c))
+              (a (duplicate-list-with-queue (list 1)) '(1))
+              (a (duplicate-list-with-queue (list (a b d) (b c d))) '((a b d) (b c d)))
+              (a (duplicate-list-with-queue (list 1 2 3 4 5 6 7 8 9 10)) '(1 2 3 4 5 6 7 8 9 10))))))
