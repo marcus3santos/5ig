@@ -15,7 +15,7 @@ In your implementation, you must write and use a helper function called MULTIPLY
        (:tc (:function dot-product-list)
            (:gvn 
             (:a (dot-product-list '(1 2 3) '(4 5 6)) '(4 10 18))
-            (:a (dot-product-list '() '()) '()))
+            (:a (dot-product-list () ()) ()))
            (:hdn
             (:a (dot-product-list '(10 20) '(0.5 2)) '(5.0 40))
             (:a (dot-product-list '(-1 -2) '(3 4)) '(-3 -8))
@@ -50,7 +50,7 @@ In your implementation, you must write and use a helper function called MULTIPLY
              (:gvn
               (:a (square-evens '(1 2 3 4 5 6)) '(4 16 36))
               (:a (square-evens '(1 3 5)) '())
-              (:a (square-evens '()) '()))
+              (:a (square-evens ()) ()))
              (:hdn
               (:a (square-evens '(2 -4 0)) '(4 16 0))
               (:a (square-evens '(10 11 12)) '(100 144)))))
