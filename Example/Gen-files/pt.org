@@ -38,7 +38,7 @@ should evaluate to
 #+BEGIN_SRC lisp
 The expression below
 
-  (DOT-PRODUCT-LIST 'NIL 'NIL)
+  (DOT-PRODUCT-LIST NIL NIL)
 
 should evaluate to
 
@@ -86,7 +86,7 @@ should evaluate to
 #+BEGIN_SRC lisp
 The expression below
 
-  (SQUARE-EVENS 'NIL)
+  (SQUARE-EVENS NIL)
 
 should evaluate to
 

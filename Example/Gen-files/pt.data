@@ -60,7 +60,7 @@ should evaluate to
 #+BEGIN_SRC lisp
 The expression below
 
-  (SQUARE-EVENS 'NIL)
+  (SQUARE-EVENS NIL)
 
 should evaluate to
 
@@ -84,7 +84,7 @@ should evaluate to
       (TESTER::IS (EQUALP (TESTER::SQUARE-EVENS '(1 2 3 4 5 6)) '(4 16 36))
                   TESTER::PATH)
       (TESTER::IS (EQUALP (TESTER::SQUARE-EVENS '(1 3 5)) 'NIL) TESTER::PATH)
-      (TESTER::IS (EQUALP (TESTER::SQUARE-EVENS 'NIL) 'NIL) TESTER::PATH))))
+      (TESTER::IS (EQUALP (TESTER::SQUARE-EVENS NIL) NIL) TESTER::PATH))))
   (:ASKED-FUNCTION TESTER::SQUARE-EVENS)
   (:FORBIDDEN-SYMBOLS :PENALTY 75 :SYMBOLS
    (REVERSE NREVERSE APPEND CONCATENATE)))
@@ -143,7 +143,7 @@ should evaluate to
 #+BEGIN_SRC lisp
 The expression below
 
-  (DOT-PRODUCT-LIST 'NIL 'NIL)
+  (DOT-PRODUCT-LIST NIL NIL)
 
 should evaluate to
 
@@ -170,7 +170,7 @@ should evaluate to
       (TESTER::IS
        (EQUALP (TESTER::DOT-PRODUCT-LIST '(1 2 3) '(4 5 6)) '(4 10 18))
        TESTER::PATH)
-      (TESTER::IS (EQUALP (TESTER::DOT-PRODUCT-LIST 'NIL 'NIL) 'NIL)
+      (TESTER::IS (EQUALP (TESTER::DOT-PRODUCT-LIST NIL NIL) NIL)
                   TESTER::PATH))))
   (:ASKED-FUNCTION TESTER::DOT-PRODUCT-LIST))
  (:QUESTIONS (:Q2 :Q1)) (:FOLDER "~/pt/"))
