@@ -4,8 +4,6 @@
 
 * The Workflow
 
-The workflow involves the following steps:
-
 1. The instructor writes the assessment in s-expression markup (SXM).
 2. The instructor uses function GEN-EXAM-FILES to generate from the SXM file the necessary support
    files, including the formatted questions translated to PDF and assessment-specific test
