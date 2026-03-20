@@ -23,6 +23,44 @@ better automation and tooling.
 
 See example here: [[https://github.com/marcus3santos/5ig/blob/main/Example/pt.sxm]]
 
+The following EBNF grammar defines the structure of an SXM document:
+
+#+begin_example
+;; --- Top Level Structure ---
+<sxm-expression>    ::= <doc-node>
+<doc-node>          ::= (:doc (:title <string> :folder <string>) <node>*)
+
+;; --- Shared Node Definition ---
+<node>              ::= <string> | <p-node> | <ul-node> | <ol-node> | <li-node> | 
+                        <s-node> | <cb-node> | <wa-node> | <q-node>
+
+;; --- Standard Content Nodes ---
+<p-node>            ::= (:p <node>*)
+<ul-node>           ::= (:ul <node>*)
+<ol-node>           ::= (:ol <node>*)
+<li-node>           ::= (:li <node>*)
+<wa-node>           ::= (:wa <node>*)
+<s-node>            ::= (:s ([:level <integer>] [:title <string>]) <node>*)
+<cb-node>           ::= (:cb (:language <string>) <node>*)
+
+;; --- Question & Metadata Nodes ---
+<q-node>            ::= (:q <q-props> <q-element>*)
+<q-props>           ::= ([:title <string>] [:forbidden <list> :penalty <number>])
+<q-element>         ::= <node> | <tc-node> | <sols-node>
+
+<tc-node>           ::= (:tc (:function <symbol>) <tc-element>*)
+<tc-element>        ::= <string> | <p-node> | <cb-node> | <gvn-node> | <hdn-node>
+
+<gvn-node>          ::= (:gvn <data-element>*)
+<hdn-node>          ::= (:hdn <data-element>*)
+<data-element>      ::= <string> | <p-node> | <a-node>
+<a-node>            ::= (:a <lisp-form> <lisp-form>)
+
+;; --- Solutions ---
+<sols-node>         ::= (:sols <sol-node>+)
+<sol-node>          ::= (:sol <lisp-code>)
+#+end_example
+
 ** Explanation of Fields
 
 - =:title= — Assessment title.
