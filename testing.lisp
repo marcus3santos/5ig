@@ -7,7 +7,7 @@
 
 ;;;; Modular Lisp Sandbox Runner
 
-(defconstant +timeout+ 0.5)
+(defparameter +timeout+ 1)
 
 ;; --- 1. DATA STRUCTURES ---
 (defstruct (execution-result (:type list))
@@ -62,23 +62,28 @@
 ;; --- 3. EXECUTION ENGINE ---
 
 (defparameter *stack-limit-mb* 4)   ; Small stack to catch recursion fast
-(defparameter *heap-limit-mb* 256)  ; Enough for small tasks, safe from "fork-bombs"
+(defparameter *heap-limit-mb* 40)  ; Enough for small tasks, safe from "fork-bombs"
 
 (defun %build-payload (form student-path timeout)
   "Generates the string of code to be passed to the subprocess."
   (format nil
-          "(progn (load ~S)
-                  (handler-case
-                      (sb-ext:with-timeout ~D
-                        (let* ((expr (quote ~S))
-                               (op (first expr))
-                               (a1 (eval (second expr)))
-                               (a2 (eval (third expr)))
-                               (result (funcall op a1 a2)))
-                          (format t \"~%(:OK :PASSED-P ~~S :GOT ~~S :EXPECTED ~~S)~%\" result a1 a2)))
-                    (storage-condition () (uiop:quit 101))
-                    (error (e) (progn (format *error-output* \"~~A\" e) 
-                                      (uiop:quit 102)))))"
+          "(progn 
+             (load ~S)
+             (sb-ext:gc :full t)
+             (handler-case
+                 (sb-ext:with-timeout ~D
+                   (handler-case
+                       (let* ((expr (quote ~S))
+                              (op (first expr))
+                              (a1 (eval (second expr)))
+                              (a2 (eval (third expr)))
+                              (result (funcall op a1 a2)))
+                         (format t \"~%(:OK :PASSED-P ~~S :GOT ~~S :EXPECTED ~~S)~%\" result a1 a2))
+                     (storage-condition () (uiop:quit 101))
+                     (error (e) (progn (format *error-output* \"~~A\" e) 
+                                       (uiop:quit 102)))))
+               (sb-ext:timeout (c) (progn (format *error-output* \"~~A\" e) 
+                                          (uiop:quit 1)))))"
           student-path timeout form))
 
 (defun %run-os-process (lisp-code timeout)
@@ -113,8 +118,10 @@
               :log (format nil "Security Error: Found ~A" forbidden-item)))
             (t
              (let ((payload (%build-payload form student-code-path timeout)))
-               (multiple-value-bind (stdout stderr exit-code) 
+               (multiple-value-bind (stdout stderr exit-code)
+                  
                    (%run-os-process payload timeout)
+                 
                  (let ((status (cond ((= exit-code 1)   :timeout)
                                      ((= exit-code 0)   :ok)
                                      ((= exit-code 101) :overflow)

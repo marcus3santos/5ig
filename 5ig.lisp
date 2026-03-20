@@ -202,8 +202,8 @@
          (fname          (getf tc-data :asked-function))
          (solutions      (getf tc-data :solutions))
          ;; 1. Execute Functional Testing
-         (summary        (with-package *tester-package*
-                           (grade-student student-file question-label fname testcase-type)))
+         (summary (with-package *tester-package*
+                   (grade-student student-file question-label fname testcase-type)))
          (score-history (list :functional-score (getf summary :score))))
     
     ;; 2. Static Analysis & Violation Checking

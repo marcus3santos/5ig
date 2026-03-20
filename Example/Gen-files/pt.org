@@ -13,12 +13,12 @@
 
 
 *NOTE*:
-- You are required to write the solutions for the parts of this question in the lisp program file *~/pt/q1.lisp* .
+- You are required to write the solutions for the parts of this question in the lisp program file *~/quicklisp/local-projects/5ig/Example/pt/q1.lisp* .
 - You may create helper functions in your program file. 
 - To ensure your solution is in the correct folder and passes the test cases shown in the examples below,  type the following expression on the REPL:
 
 #+BEGIN_SRC lisp
-(cg:chk-my-solution "~/pt/q1.lisp")
+(cg:chk-my-solution "~/quicklisp/local-projects/5ig/Example/pt/q1.lisp")
 #+END_SRC
 
 Write a Common Lisp function called DOT-PRODUCT-LIST that takes two lists of numbers of equal length. The function should return a list where each element is the product of the numbers at that position. 
@@ -51,12 +51,12 @@ should evaluate to
 
 
 *NOTE*:
-- You are required to write the solutions for the parts of this question in the lisp program file *~/pt/q2.lisp* .
+- You are required to write the solutions for the parts of this question in the lisp program file *~/quicklisp/local-projects/5ig/Example/pt/q2.lisp* .
 - You may create helper functions in your program file. 
 - To ensure your solution is in the correct folder and passes the test cases shown in the examples below,  type the following expression on the REPL:
 
 #+BEGIN_SRC lisp
-(cg:chk-my-solution "~/pt/q2.lisp")
+(cg:chk-my-solution "~/quicklisp/local-projects/5ig/Example/pt/q2.lisp")
 #+END_SRC
 
 Write a function SQUARE-EVENS that takes a list of integers and returns a new list containing the squares of only the even numbers in the original list, maintaining their relative order. 

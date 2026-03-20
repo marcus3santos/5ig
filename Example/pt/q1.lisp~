@@ -1,0 +1,5 @@
+;; q1.lisp
+(defun dot-product-list (a b)
+  (labels ((multiply-records (a b)
+             (* a b)))
+    (mapcar #'multiply-records a b)))

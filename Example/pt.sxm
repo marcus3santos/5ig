@@ -1,5 +1,5 @@
 (:doc (:title "Practicum Test - Example"
-      :folder "~/pt/")
+      :folder "~/quicklisp/local-projects/5ig/Example/pt/")
      (:s (:level 1 :title "Instructions")
         (:ul
          (:li "*Test Duration*: 25 minutes")
