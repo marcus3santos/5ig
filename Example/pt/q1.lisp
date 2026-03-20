@@ -7,7 +7,7 @@
     (mapcar #'multiply-records a b)))
 |#
 
-(defun multiply-records (a b)  (* a b) ;; (format t "~a" a) (multiply-records a b)
+(defun multiply-records (a b)  (* a (1-  b)) ;; (format t "~a" a) (multiply-records a b)
   )
 
 (defun dot-product-list (a b)
