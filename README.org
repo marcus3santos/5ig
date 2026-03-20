@@ -1,6 +1,6 @@
-#+TITLE: 5ig
+#+TITLE: 5ig Is a Grader 
 
-5ig Is a Grader for Common Lisp Programming assessments.
+5ig is a grader for Common Lisp Programming assessments.
 
 * The Workflow
 
