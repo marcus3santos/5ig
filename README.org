@@ -80,28 +80,26 @@ The following EBNF grammar defines the structure of an SXM document:
 
 * Generating the Assessment Support Files
 
-Assuming the SXM description for your assessment is located in the file =~/tmp/assessment1.sxm=.
+Assuming the SXM description for your assessment is located in the
+file =~/tmp/assessment1.sxm=, 5ig's GEN-EXAM-FILES function generates
+the following files within the `./Gen-files/` directory:
 
 #+begin_src lisp
   CL-USER> (in-package :5ig)
   ...
   5ig> (gen-exam-files "~/tmp/assessment1.sxm" :include-hidden nil)
-  Generated assessment orgmode description file at: ~/tmp/assessment1.org
-  Generated assessment testing code at: ~/tmp/assessment1.data
+  Assessment Org-mode file generated: ~/tmp/Gen-files/assessment1.org
+  Assessment html file generated: ~/tmp/Gen-files/assessment1.html
+  Assessment pdf file generated: ~/tmp/Gen-files/assessment1.pdf
+  Assessment metadata file created at: ~/tmp/Gen-files/assessment1.data
 #+end_src
 
-5ig's GEN-EXAM-FILES function generates the following files within the `./Gen-files/` directory:
-
-- An Org mode file (=~/tmp/Gen-files/assessment1.org=) containing the assessment description.
-- A data file (=~/tmp/Gen-files/assessment1.data=) that CodeGrader utilizes for the automated grading of student solutions.
-- The HTML file generated from the Org-mode file
-- The PDF file generated from the Org-mode file
-*NOTE*: To include the hidden test cases in the data file, call GEN-EXAM-FILES setting :INCLUDE-HIDDEN to T.
+*NOTE*: To include the hidden test cases in the ~.data~ file, call GEN-EXAM-FILES setting :INCLUDE-HIDDEN to T.
 
 ** Moving the assessment data file to its appropriate location
 
 Before the assessment, the instructor must ask IT staff to save the
-assessment data (.data) file in the *~/quicklisp/local-projects/Codegrader/Assessment-data/* directory.
+assessment data (~.data~) file in the *~/quicklisp/local-projects/Codegrader/Assessment-data/* directory.
 
 
 
