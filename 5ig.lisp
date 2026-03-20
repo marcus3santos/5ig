@@ -142,6 +142,11 @@
   (format stream "~%### Question ~A~%" (subseq (symbol-name label) 1))
   (format stream "~%--- Functional Correctness Analysis ---~%")
   (format stream "~%Score: ~,2F, [0 to 100] (% of test cases passed)" (getf score-history :functional-score))
+  (mapc (lambda (f)
+          (format stream "~%The expression~%  ~s  ~a"
+                  (getf f :expr)
+                  (getf f :reason)))
+        (getf summary :feedback))
   (unless (getf summary :error)
     ;; 2. Static Analysis / Violations
     (let ((violation-report (generate-forbidden-function-violation-report fname graph violations testcase-type)))
@@ -150,10 +155,10 @@
 
     ;; 3. Functional Scoring & Penalties
     (when (getf summary :penalty-applied)
-        (format stream "~%!!! PENALTY APPLIED !!!~%Original Score: ~,2F, [0 to 100]~%Adjusted Score: ~,2F, [0 to 100] (-~D% Penalty)~%" 
-                (getf score-history :functional-score) (getf score-history :violation-score) (getf summary :penalty-applied))
-        ;;(format stream "~%Score: ~,2F, [0 to 100]~%" (getf score-history :functional-score))
-        )
+      (format stream "~%!!! PENALTY APPLIED !!!~%Original Score: ~,2F, [0 to 100]~%Adjusted Score: ~,2F, [0 to 100] (-~D% Penalty)~%" 
+              (getf score-history :functional-score) (getf score-history :violation-score) (getf summary :penalty-applied))
+      ;;(format stream "~%Score: ~,2F, [0 to 100]~%" (getf score-history :functional-score))
+      )
 
     ;; 4. Similarity & Style Feedback
     ;; Only render if it's a hidden test and feedback exists

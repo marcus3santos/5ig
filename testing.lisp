@@ -62,7 +62,7 @@
 ;; --- 3. EXECUTION ENGINE ---
 
 (defparameter *stack-limit-mb* 4)   ; Small stack to catch recursion fast
-(defparameter *heap-limit-mb* 40)  ; Enough for small tasks, safe from "fork-bombs"
+(defparameter *heap-limit-mb* 256)  ; Enough for small tasks, safe from "fork-bombs"
 
 (defun %build-payload (form student-path timeout)
   "Generates the string of code to be passed to the subprocess."
@@ -82,7 +82,7 @@
                      (storage-condition () (uiop:quit 101))
                      (error (e) (progn (format *error-output* \"~~A\" e) 
                                        (uiop:quit 102)))))
-               (sb-ext:timeout (c) (progn (format *error-output* \"~~A\" e) 
+               (sb-ext:timeout (c) (progn (format *error-output* \"~~A\" c) 
                                           (uiop:quit 1)))))"
           student-path timeout form))
 
@@ -147,7 +147,7 @@
                    ((eq :overflow (execution-result-status result)) "Memory Overflow.")
                    ((eq :error (execution-result-status result)) (execution-result-log result))
                    ((not passed)
-                    (format nil "Expected ~S but got ~S" expected (getf (execution-result-value result) :GOT))))
+                    (format nil "~%should evaluate to~%  ~S~%but evaluated to~%  ~S" expected (getf (execution-result-value result) :GOT))))
      :status (execution-result-status result))))
 
 (defmacro is (expr student-path)
