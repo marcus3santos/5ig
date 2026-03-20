@@ -47,15 +47,14 @@ See example here: [[https://github.com/marcus3santos/5ig/blob/main/Example/pt.sx
 Assuming the SXM description for your assessment is located in the file =~/tmp/assessment1.sxm=.
 
 #+begin_src lisp
-  CL-USER> (in-package :SXM)
+  CL-USER> (in-package :5ig)
   ...
-  SXM> (gen-exam-files "~/tmp/assessment1.sxm" :include-hidden nil)
+  5ig> (gen-exam-files "~/tmp/assessment1.sxm" :include-hidden nil)
   Generated assessment orgmode description file at: ~/tmp/assessment1.org
   Generated assessment testing code at: ~/tmp/assessment1.data
-  SXM>
 #+end_src
 
-CodeGrader's GEN-EXAM-FILES function generates the following files within the `./Gen-files/` directory:
+5ig's GEN-EXAM-FILES function generates the following files within the `./Gen-files/` directory:
 
 - An Org mode file (=~/tmp/Gen-files/assessment1.org=) containing the assessment description.
 - A data file (=~/tmp/Gen-files/assessment1.data=) that CodeGrader utilizes for the automated grading of student solutions.
