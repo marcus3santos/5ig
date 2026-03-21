@@ -7,7 +7,7 @@
 
 ;;;; Modular Lisp Sandbox Runner
 
-(defparameter +timeout+ 1)
+(defparameter +timeout+ 3)
 
 ;; --- 1. DATA STRUCTURES ---
 (defstruct (execution-result (:type list))
@@ -64,6 +64,20 @@
 (defparameter *stack-limit-mb* 4)   ; Small stack to catch recursion fast
 (defparameter *heap-limit-mb* 256)  ; Enough for small tasks, safe from "fork-bombs"
 
+(defun %build-payload (form student-path)
+  "Generates the string of code to be passed to the subprocess."
+  (format nil
+          "(progn 
+             (load ~S)
+             (let* ((expr (quote ~S))
+                    (op (first expr))
+                    (a1 (eval (second expr)))
+                    (a2 (eval (third expr)))
+                    (result (funcall op a1 a2)))
+               (format t \"~%(:OK :PASSED-P ~~S :GOT ~~S :EXPECTED ~~S)~%\" result a1 a2)
+               (finish-output)))"
+          student-path form))
+#|
 (defun %build-payload (form student-path timeout)
   "Generates the string of code to be passed to the subprocess."
   (format nil
@@ -85,7 +99,36 @@
                (sb-ext:timeout (c) (progn (format *error-output* \"~~A\" c) 
                                           (uiop:quit 1)))))"
           student-path timeout form))
+|#
 
+(defun %run-os-process (lisp-code timeout)
+  (let* ((process (uiop:launch-program 
+                   (list "sbcl" "--noinform" "--non-interactive" 
+                         "--eval" lisp-code "--quit")
+                   :output :stream
+                   :error-output :stream))
+         (end-time (+ (get-universal-time) timeout)))
+
+    (loop
+      (cond 
+        ;; CASE 1: Process finished OR CRASHED
+        ((not (uiop:process-alive-p process))
+         (let ((exit-code (uiop:wait-process process))
+               (output (uiop:slurp-stream-string (uiop:process-info-output process)))
+               (err-output (uiop:slurp-stream-string (uiop:process-info-error-output process))))
+           (if (zerop exit-code)
+               (return (values output nil 0))
+               ;; Return the error output so we can see the Stack/Heap message
+               (return (values nil (format nil "Subprocess Crashed (Code ~D): ~A" exit-code err-output) exit-code)))))
+        
+        ;; CASE 2: Process is looping forever
+        ((>= (get-universal-time) end-time)
+         (uiop:terminate-process process :urgent t)
+         (return (values nil "Error: Process timed out." 124)))
+        
+        (t (sleep 0.1))))))
+
+#|
 (defun %run-os-process (lisp-code timeout)
   "Handles the low-level UIOP system call."
   (handler-case
@@ -98,15 +141,14 @@
              "--eval" lisp-code "--quit")
        :output :string 
        :error-output :string 
-       :timeout timeout 
        :ignore-error-status t)
     (uiop/run-program:subprocess-error () 
       (values nil "Process Timed Out" nil))))
-
+|#
 ;; --- 4. MAIN ORCHESTRATOR ---
 (defun run-in-subprocess (form path timeout)
   "Main entry point: Validates, executes, and reports."
-  (let ((student-code-path (truename path)))
+  (let ((student-code-path (uiop:native-namestring (truename path))))
     (multiple-value-bind (safe-p forbidden-item) (check-safety student-code-path)
       (cond ((eq forbidden-item :read-error)
              (make-execution-result
@@ -117,11 +159,9 @@
               :status :security-violation
               :log (format nil "Security Error: Found ~A" forbidden-item)))
             (t
-             (let ((payload (%build-payload form student-code-path timeout)))
+             (let ((payload (%build-payload form student-code-path)))
                (multiple-value-bind (stdout stderr exit-code)
-                  
                    (%run-os-process payload timeout)
-                 
                  (let ((status (cond ((= exit-code 1)   :timeout)
                                      ((= exit-code 0)   :ok)
                                      ((= exit-code 101) :overflow)
