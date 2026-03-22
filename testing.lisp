@@ -20,7 +20,7 @@
   passed-p ; test passed?, T/NIL
   expr     ; the form that was tested
   reason   ; The reason, a string
-  status)    ; Either :ok, :timeout, :overflow, or :error
+  status)    ; Either :ok, :timeout, :overflow, :read-error, :security-violation, or :error
 
 ;; --- 2. SAFETY MODULE ---
 (defparameter *forbidden-symbols*
@@ -152,7 +152,7 @@
     (multiple-value-bind (safe-p forbidden-item) (check-safety student-code-path)
       (cond ((eq forbidden-item :read-error)
              (make-execution-result
-              :status :error
+              :status :read-error
               :log (format nil "Read Error: Unbalanced parentheses or invalid character in program file ~A" path)))
             ((not safe-p)
              (make-execution-result 
@@ -183,8 +183,8 @@
      :passed-p passed
      :expr form
      :reason (cond (passed "Passed")
-                   ((eq :timeout (execution-result-status result)) "Execution Timed Out.")
-                   ((eq :overflow (execution-result-status result)) "Memory Overflow.")
+                   ((eq :timeout (execution-result-status result)) "Caused an Execution Timed Out.")
+                   ((eq :overflow (execution-result-status result)) "Caused a Memory Overflow.")
                    ((eq :error (execution-result-status result)) (execution-result-log result))
                    ((not passed)
                     (format nil "~%should evaluate to~%  ~S~%but evaluated to~%  ~S" expected (getf (execution-result-value result) :GOT))))
@@ -206,10 +206,18 @@
 (defun summarize-results (q-label results)
   (let* ((total (length results))
          (passed (count-if #'test-result-passed-p results))
-         (failures (remove-if #'test-result-passed-p results)))
+         (failures (remove-if #'test-result-passed-p results))
+         (error-type (let ((temp :ok))
+                       (mapc (lambda (sub)
+                               (when (or (eq :read-error (test-result-status sub))
+                                         (eq :security-violation (test-result-status sub)))
+                                 (setf temp (test-result-status sub))))
+                             failures)
+                       temp)))
     (list :q-label q-label
           :score (if (zerop total) 0 (float (* 100 (/ passed total))))
           :stats (list :total total :passed passed :failed (length failures))
+          :status error-type
           :feedback (mapcar (lambda (f)
                               (list :expr (test-result-expr f)
                                     :reason (test-result-reason f)

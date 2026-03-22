@@ -142,12 +142,13 @@
   (format stream "~%### Question ~A~%" (subseq (symbol-name label) 1))
   (format stream "~%--- Functional Correctness Analysis ---~%")
   (format stream "~%Score: ~,2F, [0 to 100] (% of test cases passed)" (getf score-history :functional-score))
-  (mapc (lambda (f)
-          (format stream "~%The expression~%  ~s  ~a"
-                  (getf f :expr)
-                  (getf f :reason)))
-        (getf summary :feedback))
-  (unless (getf summary :error)
+  (when (eq (getf summary :status) :ok)
+    (mapc (lambda (f)
+            (format stream "~%The expression~%  ~s  ~a"
+                    (getf f :expr)
+                    (getf f :reason)))
+          (getf summary :feedback)))
+  (when (eq (getf summary :status) :ok)
     ;; 2. Static Analysis / Violations
     (let ((violation-report (generate-forbidden-function-violation-report fname graph violations testcase-type)))
       (when violation-report
@@ -169,8 +170,8 @@
         (format stream "------------------------------------------~%"))))
 
   ;; 5. Error messages if any
-  (when (getf summary :error)
-    (format stream "~%!!! EXECUTION ERROR: !!!~%~A~%" (getf summary :error))))
+  (unless (eq (getf summary :status) :ok)
+    (format stream "~%~%!!! EXECUTION ERROR: ~A !!!~%~%" (getf summary :status))))
 
 
 (defun generate-forbidden-function-violation-report (target-func graph violations testcase-type)
@@ -210,7 +211,6 @@
          (summary (with-package *tester-package*
                    (grade-student student-file question-label fname testcase-type)))
          (score-history (list :functional-score (getf summary :score))))
-    
     ;; 2. Static Analysis & Violation Checking
     (multiple-value-bind (program violations graph)
         (perform-static-analysis student-file fname tc-data)
@@ -221,8 +221,7 @@
       (setf (getf score-history :violation-score) (getf summary :score))
       ;; 4. Similarity Grading (Only for :hidden testcases and if no functional errors)
       (when (and (eq testcase-type :hidden) 
-                 (not (getf summary :error)))
-
+                 (eq (getf summary :status) :ok))
         ;; score-similarity returns a plist: (:score :instructor-solution :student-solution) 
         (let* ((sim-results (calc-similarity-score fname program solutions)) 
                (sim-score   (getf sim-results :score))
@@ -241,7 +240,7 @@
       (render-grading-report stream question-label score-history summary graph violations fname testcase-type))
     
     ;; 7. Style critique
-    (unless (getf summary :error)
+    (when (eq (getf summary :status) :ok)
       (critique-student-solution-style student-file))
     summary))
 
