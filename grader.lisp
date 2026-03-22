@@ -41,6 +41,7 @@
    and collects the results"
   (let ((runner-name (intern (format nil "~A-~A-~A-TEST" q-label fname kind) *tester-package*)))    
     ;; Execute the pre-compiled runner
+    (format t "Grading ~a - ~a -  " q-label student-file)
     (let* ((raw-results (funcall runner-name student-file))
            (summary (summarize-results q-label raw-results)))
       summary)))

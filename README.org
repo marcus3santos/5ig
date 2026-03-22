@@ -121,8 +121,7 @@ To succeed in the practicum, students must adhere to two primary constraints:
 
 ** Real-time Feedback with ~CHK-MY-SOLUTION~
 
-The ~CHK-MY-SOLUTION~ function is more than a simple tester; it is a
-"live" assistant that helps students address issues before the final
+The ~CHK-MY-SOLUTION~ function is more than a simple tester; it is an assistant that helps students address issues before the final
 evaluation.
 
 *** What ~CHK-MY-SOLUTION~ Does:
@@ -176,9 +175,13 @@ Below is your 'pretty-printed' code. No idiomatic improvements suggested.
 
 
 ** Benefits of the Feedback Loop
-- *Early Correction*: Students catch path or naming errors immediately rather than at the end of the exam.
-- *Iterative Improvement*: By viewing the "Style Suggestions," students can refactor their code to achieve a higher "programming style" score during the final evaluation.
-- *Confidence*: The functional results provide certainty that the core logic meets the public requirements.
+- *Early Correction*: Students catch path or naming errors immediately
+  rather than at the end of the exam.
+- *Iterative Improvement*: By viewing the "Style Suggestions,"
+  students can refactor their code to achieve a higher "programming
+  style" score during the final evaluation.
+- *Confidence*: The functional results provide certainty that the core
+  logic meets the public requirements.
 
 
 

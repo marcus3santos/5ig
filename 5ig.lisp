@@ -261,17 +261,15 @@
     (compile-test-cases test-name testcases-metadata)
     (orchestrate-grading-of-one-solution a# q-testcase-data kind)))
 
-(defun orchestrate (assessment-folder assessment-name)
-  (let* ((safe-path (uiop:ensure-directory-pathname assessment-folder)) ;; ensures path ends with /
+(defun orchestrate-grading-of-a-student-solutions (assessment-folder assessment-data-file)
+  (let* ((assessment-data (with-package *tester-package*
+                            (with-open-file (in assessment-data-file)
+                              (read in))))
+         (questions-labels (reverse (second (assoc :questions assessment-data))))
+         (safe-path (uiop:native-namestring (truename assessment-folder))) ;; ensures path ends with /
          (student-lisp-program-files (directory (make-pathname :name :wild
                                                               :type "lisp"
                                                               :defaults safe-path)))
-         (assessment-data-file (merge-pathnames (make-pathname :name assessment-name
-                                                               :type "data")
-                                                *assessment-data-folder*)))
-     (let ((report-stream (make-string-output-stream)))
-       (orchestrate-student-grading "~/pt1-v2/q1.lisp" )  
-       (get-output-stream-string report-stream))
-
-    student-lisp-program-files
-    assessment-data-file))
+         (assessment-test-cases-data (process-assessment-test-case-data assessment-data-file questions-labels)))
+    (values  student-lisp-program-files
+             assessment-test-cases-data)))

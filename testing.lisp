@@ -183,7 +183,7 @@
      :passed-p passed
      :expr form
      :reason (cond (passed "Passed")
-                   ((eq :timeout (execution-result-status result)) "Caused an Execution Timed Out.")
+                   ((eq :timeout (execution-result-status result)) "Caused an Execution Timeout.")
                    ((eq :overflow (execution-result-status result)) "Caused a Memory Overflow.")
                    ((eq :error (execution-result-status result)) (execution-result-log result))
                    ((not passed)
