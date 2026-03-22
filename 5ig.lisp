@@ -266,10 +266,33 @@
                             (with-open-file (in assessment-data-file)
                               (read in))))
          (questions-labels (reverse (second (assoc :questions assessment-data))))
-         (safe-path (uiop:native-namestring (truename assessment-folder))) ;; ensures path ends with /
-         (student-lisp-program-files (directory (make-pathname :name :wild
-                                                              :type "lisp"
-                                                              :defaults safe-path)))
-         (assessment-test-cases-data (process-assessment-test-case-data assessment-data-file questions-labels)))
-    (values  student-lisp-program-files
-             assessment-test-cases-data)))
+         (safe-path
+           (uiop:native-namestring (truename assessment-folder)))
+         (student-lisp-program-files
+           (directory (make-pathname :name :wild :type "lisp" :defaults safe-path)))
+         (assessment-test-cases-data
+           (process-assessment-test-case-data assessment-data-file questions-labels)))
+    (dolist (ql questions-labels)
+      (let ((student-file (car (member ql
+                                       student-lisp-program-files
+                                       :key (lambda (x) (intern (string-upcase (pathname-name x)) :keyword))))))
+        (if student-file
+            (orchestrate-grading-of-one-solution student-file (assoc ql assessment-test-cases-data) :hidden)
+            (format t "File not found: ~a" student-file)) ))))
+#|
+(defun orchestrate-grading-of-all-students (students-folders assessment-data-file)
+  (let* ((assessment-data (with-package *tester-package*
+                            (with-open-file (in assessment-data-file)
+                              (read in))))
+         (questions-labels (reverse (second (assoc :questions assessment-data))))
+         (assessment-test-cases-data
+           (process-assessment-test-case-data assessment-data-file questions-labels)))
+    (dolist (student-folder student-folders)
+      (orchestrate-grading-of-a-student-solutions student-folder )
+      (let ((student-file (car (member ql
+                                       student-lisp-program-files
+                                       :key (lambda (x) (intern (string-upcase (pathname-name x)) :keyword))))))
+        (if student-file
+            (orchestrate-grading-of-one-solution student-file (assoc ql assessment-test-cases-data) :hidden)
+            (format t "File not found: ~a" student-file)) ))))
+|#

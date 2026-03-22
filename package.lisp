@@ -41,11 +41,11 @@
            *parent-folder*))
 
 (defpackage #:5ig
-  (:use #:cl
+  (:use #:cl #:cl-user
         #:sxm-compiler
         #:utils
         #:grader
         #:similarity
         #:tester)
-  (:export #:gen-exam-files))
+  (:export #:gen-exam-files #:chk-my-solution))
 

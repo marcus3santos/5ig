@@ -85,9 +85,7 @@ file =~/tmp/assessment1.sxm=, 5ig's GEN-EXAM-FILES function generates
 the following files within the `./Gen-files/` directory:
 
 #+begin_src lisp
-  CL-USER> (in-package :5ig)
-  ...
-  5ig> (gen-exam-files "~/tmp/assessment1.sxm" :include-hidden nil)
+  CL-USER> (5ig:gen-exam-files "~/tmp/assessment1.sxm" :include-hidden nil)
   Assessment Org-mode file generated: ~/tmp/Gen-files/assessment1.org
   Assessment html file generated: ~/tmp/Gen-files/assessment1.html
   Assessment pdf file generated: ~/tmp/Gen-files/assessment1.pdf
@@ -138,7 +136,7 @@ evaluation.
 If a student is working on Question 1, they can evaluate the following in their REPL:
 
 #+begin_src lisp
-CL-USER> (cg:chk-my-solution "~/pt1/q1.lisp")
+CL-USER> (5ig:chk-my-solution "~/pt1/q1.lisp")
 #+end_src
 
 The output provides a comprehensive report, as shown below:
