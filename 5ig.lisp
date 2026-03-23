@@ -259,7 +259,7 @@
     (compile-test-cases test-name testcases-metadata)
     (orchestrate-grading-of-one-solution a# q-testcase-data kind)))
 
-(defun orchestrate-grading-of-a-student-solutions (assessment-folder questions-labels assessment-test-cases-data)
+(defun orchestrate-grading-of-a-student-solutions (assessment-folder questions-labels assessment-test-cases-data stream)
   (let* ((safe-path
            (uiop:native-namestring (truename assessment-folder)))
          (student-lisp-program-files
@@ -269,8 +269,15 @@
                                        student-lisp-program-files
                                        :key (lambda (x) (intern (string-upcase (pathname-name x)) :keyword))))))
         (if student-file
-            (orchestrate-grading-of-one-solution student-file (assoc ql assessment-test-cases-data) :hidden)
+            (orchestrate-grading-of-one-solution student-file (assoc ql assessment-test-cases-data) :hidden stream)
             (format t "File not found: ~a" student-file)) ))))
+
+(defun compile-and-load-all-tests (questions-labels assessment-test-cases-data)
+  (dolist (q-label questions-labels)
+    (let* ((q-testcase-data (assoc q-label assessment-test-cases-data))
+           (testcases-metadata (getf (rest q-testcase-data) :hidden))
+           (test-name (second (third testcases-metadata))))
+      (compile-test-cases test-name testcases-metadata))))
 
 (defun orchestrate-grading-of-all-students (students-folders assessment-data-file)
   (let* ((assessment-data (with-package *tester-package*
@@ -279,7 +286,6 @@
          (questions-labels (reverse (second (assoc :questions assessment-data))))
          (assessment-test-cases-data
            (process-assessment-test-case-data assessment-data-file questions-labels)))
-    ;; Compiles test cases and the test cases runner
-    ;; (compile-test-cases test-name testcases-metadata) 
+    (compile-and-load-all-tests questions-labels assessment-test-cases-data)
     (dolist (student-folder student-folders)
-      (orchestrate-grading-of-a-student-solutions student-folder questions-labels assessment-test-cases-data))))
+      (orchestrate-grading-of-a-student-solutions student-folder questions-labels assessment-test-cases-data t))))
