@@ -103,10 +103,8 @@
     assessment-data-file))
 
 (defun compile-test-cases (test-name test-form)
-  "Compiles the fiveam test and its runner. The argument is a progn 
-   containing a fiveam test and its checks and the defun for the 
-   runner that runs the test and clears up the name space of the 
-   tested functions."
+  "Compiles the fiveam-style test. The argument is a progn 
+   containing a fiveam-style test."
   (with-package *tester-package*
     ;; Mute redefinition warnings during EVAL
     (handler-bind ((style-warning #'muffle-warning)
@@ -261,17 +259,11 @@
     (compile-test-cases test-name testcases-metadata)
     (orchestrate-grading-of-one-solution a# q-testcase-data kind)))
 
-(defun orchestrate-grading-of-a-student-solutions (assessment-folder assessment-data-file)
-  (let* ((assessment-data (with-package *tester-package*
-                            (with-open-file (in assessment-data-file)
-                              (read in))))
-         (questions-labels (reverse (second (assoc :questions assessment-data))))
-         (safe-path
+(defun orchestrate-grading-of-a-student-solutions (assessment-folder questions-labels assessment-test-cases-data)
+  (let* ((safe-path
            (uiop:native-namestring (truename assessment-folder)))
          (student-lisp-program-files
-           (directory (make-pathname :name :wild :type "lisp" :defaults safe-path)))
-         (assessment-test-cases-data
-           (process-assessment-test-case-data assessment-data-file questions-labels)))
+           (directory (make-pathname :name :wild :type "lisp" :defaults safe-path))))
     (dolist (ql questions-labels)
       (let ((student-file (car (member ql
                                        student-lisp-program-files
@@ -279,7 +271,7 @@
         (if student-file
             (orchestrate-grading-of-one-solution student-file (assoc ql assessment-test-cases-data) :hidden)
             (format t "File not found: ~a" student-file)) ))))
-#|
+
 (defun orchestrate-grading-of-all-students (students-folders assessment-data-file)
   (let* ((assessment-data (with-package *tester-package*
                             (with-open-file (in assessment-data-file)
@@ -287,12 +279,7 @@
          (questions-labels (reverse (second (assoc :questions assessment-data))))
          (assessment-test-cases-data
            (process-assessment-test-case-data assessment-data-file questions-labels)))
+    ;; Compiles test cases and the test cases runner
+    ;; (compile-test-cases test-name testcases-metadata) 
     (dolist (student-folder student-folders)
-      (orchestrate-grading-of-a-student-solutions student-folder )
-      (let ((student-file (car (member ql
-                                       student-lisp-program-files
-                                       :key (lambda (x) (intern (string-upcase (pathname-name x)) :keyword))))))
-        (if student-file
-            (orchestrate-grading-of-one-solution student-file (assoc ql assessment-test-cases-data) :hidden)
-            (format t "File not found: ~a" student-file)) ))))
-|#
+      (orchestrate-grading-of-a-student-solutions student-folder questions-labels assessment-test-cases-data))))
