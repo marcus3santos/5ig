@@ -5,10 +5,6 @@
 (defparameter *tester-package* (find-package :tester))
 
 
-;;;; Modular Lisp Sandbox Runner
-
-(defparameter +timeout+ 3)
-
 ;; --- 1. DATA STRUCTURES ---
 (defstruct (execution-result (:type list))
   status       ; :ok, :error, :timeout, :overflow, :security-violation
@@ -61,6 +57,8 @@
 
 ;; --- 3. EXECUTION ENGINE ---
 
+
+(defparameter +timeout+ 3) ; Timeout for the execution of each test check
 (defparameter *stack-limit-mb* 4)   ; Small stack to catch recursion fast
 (defparameter *heap-limit-mb* 256)  ; Enough for small tasks, safe from "fork-bombs"
 
@@ -77,38 +75,17 @@
                (format t \"~%(:OK :PASSED-P ~~S :GOT ~~S :EXPECTED ~~S)~%\" result a1 a2)
                (finish-output)))"
           student-path form))
-#|
-(defun %build-payload (form student-path timeout)
-  "Generates the string of code to be passed to the subprocess."
-  (format nil
-          "(progn 
-             (load ~S)
-             (sb-ext:gc :full t)
-             (handler-case
-                 (sb-ext:with-timeout ~D
-                   (handler-case
-                       (let* ((expr (quote ~S))
-                              (op (first expr))
-                              (a1 (eval (second expr)))
-                              (a2 (eval (third expr)))
-                              (result (funcall op a1 a2)))
-                         (format t \"~%(:OK :PASSED-P ~~S :GOT ~~S :EXPECTED ~~S)~%\" result a1 a2))
-                     (storage-condition () (uiop:quit 101))
-                     (error (e) (progn (format *error-output* \"~~A\" e) 
-                                       (uiop:quit 102)))))
-               (sb-ext:timeout (c) (progn (format *error-output* \"~~A\" c) 
-                                          (uiop:quit 1)))))"
-          student-path timeout form))
-|#
 
 (defun %run-os-process (lisp-code timeout)
   (let* ((process (uiop:launch-program 
-                   (list "sbcl" "--noinform" "--non-interactive" 
-                         "--eval" lisp-code "--quit")
+                   (list "sbcl"
+                         "--noinform"
+                         "--non-interactive" 
+                         "--eval" lisp-code
+                         "--quit")
                    :output :stream
                    :error-output :stream))
          (end-time (+ (get-universal-time) timeout)))
-
     (loop
       (cond 
         ;; CASE 1: Process finished OR CRASHED
@@ -125,26 +102,9 @@
         ((>= (get-universal-time) end-time)
          (uiop:terminate-process process :urgent t)
          (return (values nil "Error: Process timed out." 124)))
-        
+        ;; Wait a bit before checking again
         (t (sleep 0.1))))))
 
-#|
-(defun %run-os-process (lisp-code timeout)
-  "Handles the low-level UIOP system call."
-  (handler-case
-      (uiop:run-program 
-       (list "sbcl"
-             "--dynamic-space-size" (write-to-string *heap-limit-mb*)
-             "--control-stack-size" (write-to-string *stack-limit-mb*)             
-             "--noinform"
-             "--non-interactive"
-             "--eval" lisp-code "--quit")
-       :output :string 
-       :error-output :string 
-       :ignore-error-status t)
-    (uiop/run-program:subprocess-error () 
-      (values nil "Process Timed Out" nil))))
-|#
 ;; --- 4. MAIN ORCHESTRATOR ---
 (defun run-in-subprocess (form path timeout)
   "Main entry point: Validates, executes, and reports."
@@ -224,19 +184,3 @@
                                     :status (test-result-status f)))
                             failures))))
 
-#|
-
-;; 1. Define the test suite
-(test my-autograder-test (path)
-  (is (equal (fact 0) 1) path)
-  (is (equal (fact 4) 24) path)
-  (is (equal (fact 3) 6) path))
-
-;; 2. Run it against a specific file
-(defun run-grading-session (student-file-path)
-  (let ((results (my-autograder-test student-file-path)))
-    (summarize-results "Question 1" results)))
-
-;; Example Call:
-;; (run-grading-session #P"/tmp/student123/solution.lisp")
-|#
