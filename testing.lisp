@@ -16,7 +16,7 @@
   passed-p ; test passed?, T/NIL
   expr     ; the form that was tested
   reason   ; The reason, a string
-  status)    ; Either :ok, :timeout, :overflow, :read-error, :security-violation, or :error
+  status)    ; Either :ok, :timeout, :overflow, :read-error, :security-violation, :missing-program-file or :error
 
 ;; --- 2. SAFETY MODULE ---
 (defparameter *forbidden-symbols*

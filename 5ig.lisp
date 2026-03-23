@@ -209,37 +209,44 @@
          (summary (with-package *tester-package*
                    (grade-student student-file question-label fname testcase-type)))
          (score-history (list :functional-score (getf summary :score))))
-    ;; 2. Static Analysis & Violation Checking
-    (multiple-value-bind (program violations graph)
-        (perform-static-analysis student-file fname tc-data)
-      
-      ;; 3. Apply Forbidden Symbol Penalties
-      (when (and violations (> (getf summary :score) 0))
-        (setf summary (apply-violation-penalty! summary (getf tc-data :forbidden-symbols))))
-      (setf (getf score-history :violation-score) (getf summary :score))
-      ;; 4. Similarity Grading (Only for :hidden testcases and if no functional errors)
-      (when (and (eq testcase-type :hidden) 
-                 (eq (getf summary :status) :ok))
-        ;; score-similarity returns a plist: (:score :instructor-solution :student-solution) 
-        (let* ((sim-results (calc-similarity-score fname program solutions)) 
-               (sim-score   (getf sim-results :score))
-               (prof-sol    (getf sim-results :instructor-solution)))
+    (if student-file
+        ;; 2. Static Analysis & Violation Checking
+        (multiple-value-bind (program violations graph)
+            (perform-static-analysis student-file fname tc-data)
+        
+          ;; 3. Apply Forbidden Symbol Penalties
+          (when (and violations (> (getf summary :score) 0))
+            (setf summary (apply-violation-penalty! summary (getf tc-data :forbidden-symbols))))
+          (setf (getf score-history :violation-score) (getf summary :score))
+          ;; 4. Similarity Grading (Only for :hidden testcases and if no functional errors)
+          (when (and (eq testcase-type :hidden) 
+                     (eq (getf summary :status) :ok))
+            ;; score-similarity returns a plist: (:score :instructor-solution :student-solution) 
+            (let* ((sim-results (calc-similarity-score fname program solutions)) 
+                   (sim-score   (getf sim-results :score))
+                   (prof-sol    (getf sim-results :instructor-solution)))
+              
+              ;; 5. Invoke refactored final-mark to get feedback and score
+              (multiple-value-bind (feedback-string final-score)
+                  (calc-final-mark score-history sim-score prof-sol)
+                
+                ;; Update summary with the weighted/bonus score and the report string
+                (setf (getf summary :score) final-score)
+                (setf (getf summary :similarity-feedback) feedback-string)
+                (setf (getf score-history :similarity-bonus-score) final-score))))
           
-          ;; 5. Invoke refactored final-mark to get feedback and score
-          (multiple-value-bind (feedback-string final-score)
-              (calc-final-mark score-history sim-score prof-sol)
-            
-            ;; Update summary with the weighted/bonus score and the report string
-            (setf (getf summary :score) final-score)
-            (setf (getf summary :similarity-feedback) feedback-string)
-            (setf (getf score-history :similarity-bonus-score) final-score))))
-      
-      ;; 6. Output Reporting
-      (render-grading-report stream question-label score-history summary graph violations fname testcase-type))
-    
+          ;; 6. Output Reporting
+          (render-grading-report stream question-label score-history summary graph violations fname testcase-type))
+        (progn
+          (format stream "~%### Question ~A~%" (subseq (symbol-name question-label) 1))
+          (format stream "~%Program file not found !!!!~%~%Score: 0.0~%")
+          (list :q-label question-label
+                :score 0
+                :status :missing-program-file
+                :feedback (list (format nil "Program file not found for question ~a !!!" question-label)))))
     ;; 7. Style critique
     (when (eq (getf summary :status) :ok)
-      (critique-student-solution-style student-file))
+      (critique-student-solution-style student-file stream))
     summary))
 
 
@@ -268,9 +275,7 @@
       (let ((student-file (car (member ql
                                        student-lisp-program-files
                                        :key (lambda (x) (intern (string-upcase (pathname-name x)) :keyword))))))
-        (if student-file
-            (orchestrate-grading-of-one-solution student-file (assoc ql assessment-test-cases-data) :hidden stream)
-            (format t "File not found: ~a" student-file)) ))))
+        (orchestrate-grading-of-one-solution student-file (assoc ql assessment-test-cases-data) :hidden stream)))))
 
 (defun compile-and-load-all-tests (questions-labels assessment-test-cases-data)
   (dolist (q-label questions-labels)
@@ -287,5 +292,6 @@
          (assessment-test-cases-data
            (process-assessment-test-case-data assessment-data-file questions-labels)))
     (compile-and-load-all-tests questions-labels assessment-test-cases-data)
-    (dolist (student-folder student-folders)
-      (orchestrate-grading-of-a-student-solutions student-folder questions-labels assessment-test-cases-data t))))
+    (with-output-to-string (str)
+      (dolist (student-folder students-folders)
+        (orchestrate-grading-of-a-student-solutions student-folder questions-labels assessment-test-cases-data str)))))

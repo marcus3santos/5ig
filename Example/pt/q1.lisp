@@ -8,8 +8,8 @@
 |#
 
 (defun multiply-records (a b)
-  (format t "~a" a)
-  (* a (multiply-records a b))
+  ;;(format t "~a" a)
+  ;;(* a (multiply-records a b))
   (* a b)
   )
 

@@ -25,26 +25,31 @@
           (push (cons func-name violations) report))))
     report))
 
-(defun critique-student-solution-style (sol)
+(defun critique-student-solution-style (sol stream)
   (let ((output (with-output-to-string (*standard-output*)
                   (lisp-critic:critique-file sol))))
     ;; We check if the output contains a hint (usually starts with a paren or keyword)
     ;; Adjust the search string based on what lisp-critic actually outputs
-    (format t "~%--- Style Feedback ---~%~%Below is your 'pretty-printed' code. ")
+    (format stream "~%--- Style Feedback ---~%~%Below is your 'pretty-printed' code. ")
     (if (search "----" output :test #'char-equal)
-        (format t "The suggestions below your code can ~%help you write more 'Lisp-y' solutions:~%~%~A" output)
-        (format t "No idiomatic improvements suggested.~%~%~A" output))))
+        (format stream "The suggestions below your code can ~%help you write more 'Lisp-y' solutions:~%~%~A~%" output)
+        (format stream "No idiomatic improvements suggested.~%~%~A~%" output))))
 
 (defun grade-student (student-file q-label fname kind)
   "Loads the student's program file in the tester sandbox,
    depending on KIND runs the given or hidden fiveam test cases, 
    and collects the results"
-  (let ((runner-name (intern (format nil "~A-~A-~A-TEST" q-label fname kind) *tester-package*)))    
-    ;; Execute the pre-compiled runner
-    (format t "Grading ~a - ~a -  " q-label student-file)
-    (let* ((raw-results (funcall runner-name student-file))
-           (summary (summarize-results q-label raw-results)))
-      summary)))
+  (if student-file
+      (let ((runner-name (intern (format nil "~A-~A-~A-TEST" q-label fname kind) *tester-package*)))    
+        ;; Execute the pre-compiled runner
+        (format t "~%Grading ~a " student-file)
+        (let* ((raw-results (funcall runner-name student-file))
+               (summary (summarize-results q-label raw-results)))
+          summary))
+      (list :q-label q-label
+                    :score 0
+                    :status :missing-program-file
+                    :feedback (list (format nil "Program file not found for question ~a !!!" q-label)))))
 
 (defun calc-final-mark (score-history similarity professor-solution)
   "Calculates the final grade and generates a feedback report.
