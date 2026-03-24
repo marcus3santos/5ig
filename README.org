@@ -75,7 +75,7 @@ The following EBNF grammar defines the structure of an SXM document:
     - =(:p ...)= - paragraphs
     - =(:tc ...)= - test cases
     - =(:gvn ...)=- Node  containing given test assertions; they are translated to code that students can use to test their solutions during the test.
-    - =(:hdn ...)= - Node containing hidden test assertions; they are translated to code that CodeGrader will use to test the students' solutions after they complete the test.
+    - =(:hdn ...)= - Node containing hidden test assertions; they are translated to code that 5ig will use to test the students' solutions after they complete the test.
     - =(:sols ...)= - Node containing the question solution(s). 
 
 * Phase 2: Generating the Assessment Support Files
@@ -97,20 +97,20 @@ the following files within the `./Gen-files/` directory:
 ** Moving the assessment data file to its appropriate location
 
 Before the assessment, the instructor must ask IT staff to save the
-assessment data (~.data~) file in the *~/quicklisp/local-projects/Codegrader/Assessment-data/* directory.
+assessment data (~.data~) file in the *~/quicklisp/local-projects/5ig/Assessment-data/* directory.
 
 * Phase 3: Student Interaction & The Practicum
 
 During the practicum, students solve the programming problems defined
 in the assessment. While the *PDF* serves as their primary guide, 
-students interact with the CodeGrader system in the Lisp REPL through
+students interact with 5ig in the Lisp REPL through
 a specialized function called ~CHK-MY-SOLUTION~ designed to ensure
 compliance and promote better Lisp programming habits.
 
 ** Student Requirements
 To succeed in the practicum, students must adhere to two primary constraints:
 1. *Function Restrictions*: Students must avoid the ~:forbidden~
-   functions listed for each question. CodeGrader automatically
+   functions listed for each question. 5ig automatically
    applies the instructor-defined penalties if these symbols are
    detected in the submission.
 2. *Filesystem Compliance*: Solutions must be saved in the designated
