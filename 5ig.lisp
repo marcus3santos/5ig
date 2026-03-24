@@ -78,24 +78,6 @@
     (do-symbols (s pkg)
       (unintern s pkg))))
 
-#|
-(defun test-grade-student (student-file assessment-data-file q-label)
-  "Evaluates metadata in the sandbox package and executes the grade."
-  (reset-sandbox-package)
-  (let* ((assessment-test-case-data (process-assessment-test-case-data assessment-data-file (list q-label)))
-         (q-testcase-data (rest (assoc q-label assessment-test-case-data)))
-         (fname (getf q-testcase-data :asked-function))
-         (given-testcases-metadata (getf q-testcase-data :given)))
-    ;; 1. Set the evaluation context to :sandbox
-    (with-package :sandbox
-      ;; EVAL compiles/defines the test and runner in this package
-      (eval given-testcases-metadata)
-      ;; 2. Perform the grading
-      ;; grade-student uses (intern (format ...)) to find the runner
-      ;; in the *package* where it is called.
-      (grade-student student-file q-label fname 'given))))
-|#
-
 (defun derive-assessment-data-file (solution-file-path)
   "Derives the assessment data file path from the solution file path."
   (let* ((assessment-folder-name (car (last (pathname-directory solution-file-path))))
@@ -249,13 +231,11 @@
       (critique-student-solution-style student-file stream))
     summary))
 
-
 (defun chk-my-solution (a# &optional (kind :given))
   "Checks a student's solution file. Performs safe reading, static analysis,
    and applies percentage penalties based on the :penalty metadata value."
   (unless (probe-file a#)
     (error "~%!!!!!!!! Error: File not found. !!!!!!!!"))
-  
   (let* ((assessment-data-file (derive-assessment-data-file a#))
          (q-label (intern (string-upcase (pathname-name a#)) :keyword))
          (assessment-test-case-data (process-assessment-test-case-data assessment-data-file (list q-label)))
@@ -295,3 +275,82 @@
     (with-output-to-string (str)
       (dolist (student-folder students-folders)
         (orchestrate-grading-of-a-student-solutions student-folder questions-labels assessment-test-cases-data str)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defun check-input-files (lf)
+  (mapc (lambda (f)
+          (unless (probe-file f)
+            (error "Folder/file ~S does not exist!!!" f)))
+        lf))
+
+(defun create-results-folder (folder-path)
+  "Ensures the results folder exists and returns its pathname."
+  (ensure-directories-exist (uiop:ensure-directory-pathname folder-path) :verbose T))
+
+(defun read-assessment-metadata (assessment-data-file)
+  (with-package *tester-package*
+    (with-open-file (in assessment-data-file)
+      (read in))))
+
+(defun parse-room-pc (str)
+  (do ((i 0 (1+ i)))
+      ((or (= i (length str))
+           (and (not (alphanumericp (aref str i)))
+                (not (char= #\- (aref str i)))))
+       (subseq str 0 i))))
+
+(defun get-insert-std (line table)
+  (let* ((id (subseq line 0 (position #\, line)))
+         (sufx1 (subseq line (1+ (length id))))
+         (fname (subseq sufx1 0 (position #\, sufx1)))
+         (sufx2 (subseq sufx1 (1+ (length fname))))
+         (lname (subseq sufx2 0 (position #\, sufx2)))
+         (room-pc (intern (string-upcase (parse-room-pc (subseq sufx2 (1+ (length lname)))))
+                          :keyword)))
+    (setf (gethash room-pc table) (list (parse-integer (remove #\u+feff id) :junk-allowed t) fname lname room-pc))))
+
+(defun create-mapping-table (csv-file)
+  (let ((htable (make-hash-table)))
+    (with-open-file (in csv-file :direction :input)
+      (loop for line = (read-line in nil)
+            while line do
+              (get-insert-std line htable)))
+    htable))
+
+#|
+(defun grade-exam (submissions-zipped-file std-pc-map assessment-data-file results-folder &optional exam-grades-export-file)
+  "Main function to grade an exam.
+   submissions-zipped-file: Zipped file containing student solutions.
+   std-pc-map: CSV file with student ID, name, and room-machine ID.
+   assessment-data-file: Tooling file for the assessment.
+   results-folder: Folder where CodeGrader will save results.
+   exam-grades-export-file: Optional file to export exam grades."
+  (check-input-files 
+   (list submissions-zipped-file std-pc-map assessment-data-file (when exam-grades-export-file exam-grades-export-file)))
+  (let* ((results-folder (create-results-folder results-folder))
+         (assessment-data (read-assessment-metadata assessment-data-file))
+         (questions-labels (reverse (second (assoc :questions assessment-data))))
+         (assessment-test-cases-data
+           (process-assessment-test-case-data assessment-data-file questions-labels))
+         (feedback-folder (merge-pathnames "student-feedback" results-folder))
+         (subs-folder (merge-pathnames "submissions" results-folder))
+         (map (create-mapping-table std-pc-map)))
+    ;; Completed all the above functions. Need to test and properly doc them
+    (prepare-submission-environment subs-folder submissions-zipped-file feedback-folder)
+    (load-questions-testcases (cdr assessment-data) assessment-questions "hidden")
+    (with-open-file (log-file-stream (ensure-directories-exist (merge-pathnames "codegrader-history/log.txt" (user-homedir-pathname)))
+                                     :direction :output
+                                     :if-exists :append
+                                     :if-does-not-exist :create)
+      (let ((broadcast-stream (make-broadcast-stream *standard-output* log-file-stream)))
+        (format broadcast-stream "~a: Started marking~%" (get-date-time))
+        (process-student-submissions (directory (concatenate 'string (namestring subs-folder) "*/"))
+                                     map
+                                     assessment-questions
+                                     (cdr assessment-data)
+                                     feedback-folder
+                                     log-file-stream) ; Passed here
+        (finalize-grading broadcast-stream subs-folder exam-grades-export-file results-folder map log-file-stream) ; Added log-file-stream here
+        "(^_^)"))))
+|#
