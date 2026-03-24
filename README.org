@@ -85,7 +85,7 @@ file =~/quicklisp/local-projects/5ig/Example/pt.sxm=, 5ig's GEN-EXAM-FILES funct
 the following files within the `./Gen-files/` directory:
 
 #+begin_src lisp
-  CL-USER> (5ig:gen-exam-files "~/tmp/assessment1.sxm" :include-hidden nil)
+  CL-USER> (5ig:gen-exam-files "~/quicklisp/local-projects/5ig/Example/pt.sxm" :include-hidden nil)
   Assessment Org-mode file generated: ~/quicklisp/local-projects/5ig/Example/Gen-files/pt.org
   Assessment html file generated: ~/quicklisp/local-projects/5ig/Example/Gen-files/pt.html
   Assessment pdf file generated: ~/quicklisp/local-projects/5ig/Example/Gen-files/pt.pdf
