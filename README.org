@@ -163,8 +163,6 @@ Below is your 'pretty-printed' code. No idiomatic improvements suggested.
 **********************************************************************
 
 (DEFUN DOT-PRODUCT-LIST (A B) (MAPCAR #'MULTIPLY-RECORDS A B))
-(:Q-LABEL :Q1 :SCORE 100.0 :STATS (:TOTAL 2 :PASSED 2 :FAILED 0) :STATUS :OK
- :FEEDBACK NIL)
 #+end_example
 
 ** Benefits of the Feedback Loop
