@@ -136,23 +136,18 @@ evaluation.
 If a student is working on Question 1, they can evaluate the following in their REPL:
 
 #+begin_src lisp
-CL-USER> (5ig:chk-my-solution "~/pt1/q1.lisp")
+CL-USER> (5ig:chk-my-solution "~/quicklisp/local-projects/5ig/Example/pt/q1.lisp")
 #+end_src
 
 The output provides a comprehensive report, as shown below:
 
 #+begin_example
+Grading ~/quicklisp/local-projects/5ig/Example/pt/q1.lisp ..
 ### Question 1
 
 --- Functional Correctness Analysis ---
 
-Score: 50.00, [0 to 100] (% of test cases passed)
-The expression
-  (DOT-PRODUCT-LIST '(1 2 3) '(4 5 6))  
-should evaluate to
-  (4 10 18)
-but evaluated to
-  (3 8 15)
+Score: 100.00, [0 to 100] (% of test cases passed)
 
 --- Forbidden Function Violation Analysis for Function DOT-PRODUCT-LIST ---
 
@@ -164,13 +159,13 @@ Below is your 'pretty-printed' code. No idiomatic improvements suggested.
 
 **********************************************************************
 
-(DEFUN MULTIPLY-RECORDS (A B) (* A (1- B)))
+(DEFUN MULTIPLY-RECORDS (A B) (* A B))
 **********************************************************************
 
 (DEFUN DOT-PRODUCT-LIST (A B) (MAPCAR #'MULTIPLY-RECORDS A B))
+(:Q-LABEL :Q1 :SCORE 100.0 :STATS (:TOTAL 2 :PASSED 2 :FAILED 0) :STATUS :OK
+ :FEEDBACK NIL)
 #+end_example
-
-
 
 ** Benefits of the Feedback Loop
 - *Early Correction*: Students catch path or naming errors immediately
