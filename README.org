@@ -14,7 +14,7 @@
    solutions.
 The next sections explain each of these workflow steps.
 
-* Writing a Lisp Programming Assessment Using SXM
+* Phase 1: Writing a Lisp Programming Assessment Using SXM
 
 Instructors write their Lisp assessments in SXM. This structured format simplifies parsing and enables
 better automation and tooling.
@@ -78,7 +78,7 @@ The following EBNF grammar defines the structure of an SXM document:
     - =(:hdn ...)= - Node containing hidden test assertions; they are translated to code that CodeGrader will use to test the students' solutions after they complete the test.
     - =(:sols ...)= - Node containing the question solution(s). 
 
-* Generating the Assessment Support Files
+* Phase 2: Generating the Assessment Support Files
 
 Assuming the SXM description for your assessment is located in the
 file =~/tmp/assessment1.sxm=, 5ig's GEN-EXAM-FILES function generates
