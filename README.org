@@ -80,17 +80,17 @@ The following EBNF grammar defines the structure of an SXM document:
 
 * Phase 2: Generating the Assessment Support Files
 
-Assuming the SXM description for your assessment is located in the
-file =~/tmp/assessment1.sxm=, 5ig's GEN-EXAM-FILES function generates
+Let's use the SXM description for an assessment  located in the
+file =~/quicklisp/local-projects/5ig/Example/pt.sxm=, 5ig's GEN-EXAM-FILES function generates
 the following files within the `./Gen-files/` directory:
 
 #+begin_src lisp
   CL-USER> (5ig:gen-exam-files "~/tmp/assessment1.sxm" :include-hidden nil)
-  Assessment Org-mode file generated: ~/tmp/Gen-files/assessment1.org
-  Assessment html file generated: ~/tmp/Gen-files/assessment1.html
-  Assessment pdf file generated: ~/tmp/Gen-files/assessment1.pdf
-  Assessment metadata file created at: ~/tmp/Gen-files/assessment1.data
-#+end_src
+  Assessment Org-mode file generated: ~/quicklisp/local-projects/5ig/Example/Gen-files/pt.org
+  Assessment html file generated: ~/quicklisp/local-projects/5ig/Example/Gen-files/pt.html
+  Assessment pdf file generated: ~/quicklisp/local-projects/5ig/Example/Gen-files/pt.pdf
+  Assessment metadata file created at: ~/quicklisp/local-projects/5ig/Example/Gen-files/pt.data
+ #+end_src
 
 *NOTE*: To include the hidden test cases in the ~.data~ file, call GEN-EXAM-FILES setting :INCLUDE-HIDDEN to T.
 
