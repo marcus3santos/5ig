@@ -1,11 +1,26 @@
 (in-package :utils)
 
+(defparameter *salt* "A9f4XqZb!")
+
+(defun simple-hash (string)
+  "Compute a deterministic integer hash of STRING (portable Common Lisp)."
+  (let ((hash 0))
+    (loop for c across string
+          do (setf hash (mod (+ (* hash 31) (char-code c)) #xffffffff)))
+    hash))
+
+(defun hash-std-id (stdid)
+  (format nil "~A" (simple-hash (format nil "~A~A" stdid *salt*))))
+
+(defun my-feedback-file (stdid)
+  (format nil "~A.txt" (hash-std-id stdid)))
+
 (defun safe-read-student-code (file-path)
   "Reads a student's file in a restricted environment to prevent 
 malicious reader macros or resource exhaustion."
   (with-open-file (in file-path)
-    (let ((*read-eval* nil)           ;; Prevents #. execution
-          (*read-base* 10)            ;; Ensures standard decimal reading
+    (let ((*read-eval* nil) ;; Prevents #. execution
+          (*read-base* 10)  ;; Ensures standard decimal reading
           (*package* (find-package (find-package :tester)))
           ;; Prevent circularity bombs
           (*read-circle* nil))        

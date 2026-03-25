@@ -8,7 +8,9 @@
            #:with-package
            #:add-prefix-to-symbol-in-form
            #:safe-read-student-code
-           #:get-call-graph))
+           #:get-call-graph
+           #:hash-std-id
+           #:my-feedback-file))
 
 (defpackage #:tester
   (:use #:cl #:utils)

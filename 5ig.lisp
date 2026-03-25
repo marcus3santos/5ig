@@ -29,9 +29,6 @@
                                  (rest qdata) :key #'first)))
             (remove-if-not  #'q-label-p  assessment-data :key #'first)) ))
 
-
-
-
 (defun process-assessment-test-case-data (assessment-data-file q-labels-list)
   "Extracts and processes programming assessment data for a specific set of questions.
 
@@ -246,16 +243,55 @@
     (compile-test-cases test-name testcases-metadata)
     (orchestrate-grading-of-one-solution a# q-testcase-data kind)))
 
-(defun orchestrate-grading-of-a-student-solutions (assessment-folder questions-labels assessment-test-cases-data stream)
-  (let* ((safe-path
-           (uiop:native-namestring (truename assessment-folder)))
-         (student-lisp-program-files
-           (directory (make-pathname :name :wild :type "lisp" :defaults safe-path))))
-    (dolist (ql questions-labels)
-      (let ((student-file (car (member ql
-                                       student-lisp-program-files
-                                       :key (lambda (x) (intern (string-upcase (pathname-name x)) :keyword))))))
-        (orchestrate-grading-of-one-solution student-file (assoc ql assessment-test-cases-data) :hidden stream)))))
+(defun expand-tilde (path)
+  (if (and (stringp path)
+           (> (length path) 0)
+           (char= (char path 0) #\~))
+      (merge-pathnames
+       (subseq path 2)
+       (user-homedir-pathname))
+      (pathname path)))
+
+(defun path-relative-to-home (path)
+  (let* ((full (expand-tilde path))
+         (home (user-homedir-pathname)))
+    (enough-namestring full home)))
+
+(defun grade-solutions (student-files questions-labels assessment-test-cases-data feedback-stream)
+  (let (results)
+    (dolist (ql questions-labels results)
+      (let ((student-file (car (member ql student-files :key (lambda (x)
+                                                               (intern (string-upcase (pathname-name x)) :keyword))))))
+        (push (orchestrate-grading-of-one-solution student-file (assoc ql assessment-test-cases-data) :hidden feedback-stream)
+              results)))))
+
+(defun generate-feedback-file (file-name feedback-string feedback-folder)
+  (let* ((folder (ensure-directories-exist (merge-pathnames file-name feedback-folder))))
+    (with-open-file (out folder :direction :output :if-exists :supersede)
+      (format out feedback-string))))
+
+(defun orchestrate-grading-of-a-student-solutions (student-folder student questions-labels
+                                                   assessment-required-folder assessment-test-cases-data
+                                                   feedback-folder map
+                                                   feedback-stream log-file-stream)
+  (let* ((std-sub-folder (path-relative-to-home assessment-required-folder))
+         (std-assessment-path (merge-pathnames std-sub-folder student-folder))
+         (student-files (directory (merge-pathnames "*.*" std-assessment-path)))
+         (solution-evaluations (grade-solutions student-files questions-labels assessment-test-cases-data feedback-stream))
+         (evaluation  (list (/ (reduce #'+ (mapcar (lambda (e) (getf e :score))
+                                                   solutions-evaluations))
+                               (length questions-labels))
+                            solution-evaluations))
+         (evaluation-record (make-submission :std-id (first student)
+                                             :std-fname (second student)
+                                             :std-lname (third student)
+                                             :room-pc (fourth student)
+                                             :evaluation evaluation
+                                             :total-marks (first evaluation)))
+         (anony-id-file-name (format nil "~a.txt" (hash-std-id (submission-std-id item)))))
+    (format log-file-stream "~%~a, ~a, ~a, ~s" (submission-std-room-pc item) student-folder anony-id-file-name evaluation)
+    (setf (gethash (submission-std-id item) map) item)
+    (generate-feedback-file anony-id-file-name (get-output-stream-string feedback-stream) feedback-folder)))
 
 (defun compile-and-load-all-hidden-tests (questions-labels assessment-test-cases-data)
   (dolist (q-label questions-labels)
@@ -263,19 +299,20 @@
            (testcases-metadata (getf (rest q-testcase-data) :hidden))
            (test-name (second (third testcases-metadata))))
       (compile-test-cases test-name testcases-metadata))))
-
+#|
 (defun orchestrate-grading-of-all-students (students-folders assessment-data-file)
   (let* ((assessment-data (with-package *tester-package*
                             (with-open-file (in assessment-data-file)
                               (read in))))
+         (assessment-required-folder (uiop:ensure-directory-pathname (second (assoc :folder assessment-data))))
          (questions-labels (reverse (second (assoc :questions assessment-data))))
          (assessment-test-cases-data
            (process-assessment-test-case-data assessment-data-file questions-labels)))
     (compile-and-load-all-hidden-tests questions-labels assessment-test-cases-data)
     (with-output-to-string (str)
       (dolist (student-folder students-folders)
-        (orchestrate-grading-of-a-student-solutions student-folder questions-labels assessment-test-cases-data str)))))
-
+        (orchestrate-grading-of-a-student-solutions student-folder questions-labels assessment-required-folder assessment-test-cases-data str)))))
+|#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun check-input-files (lf)
@@ -329,6 +366,104 @@
   (uiop:delete-directory-tree subs-folder :validate t)
   (uiop:run-program (list "unzip" (namestring submissions-zipped-file) "-d" (namestring subs-folder))))
 
+
+(defun process-all-students-submissions (students-folders map questions-labels
+                                    assessment-required-folder assessment-test-cases-data feedback-folder
+                                    feedback-stream log-file-stream)
+  "Iterates through student submission folders and grades each student's work."
+  (dolist (student-folder students-folders)
+    (let* ((str (namestring student-folder))
+           (temp (subseq str (1+ (position #\/ (subseq str 0 (1- (length str))) :from-end t))))
+           (room-pc (intern (string-upcase (subseq temp 0 (1- (length temp)))) :keyword))
+           (student (gethash room-pc map)))
+      (if std
+          (progn
+            (orchestrate-grading-of-a-student-solutions student-folder student questions-labels assessment-required-folder assessment-test-cases-data feedback-folder map feedkac-string log-file-stream)
+            (format t "~%~a~VT~C -- Graded" (cdr student) 40 #\tab))
+          (error "Computer ID (~a) not found in given mapping file!!!" room-pc)))))
+
+(defun get-std-id (csv)
+  (subseq csv 1 (position #\, csv)))
+
+(defun get-std-name (csv)
+  (let* ((pref1 (subseq csv (1+ (position #\, csv))))
+	 (pref2 (subseq pref1 (1+ (position #\, pref1))))
+	 (lname (subseq pref1 0 (position #\, pref1)))
+	 (fname (subseq pref2 0 (position #\, pref2))))
+    (concatenate 'string fname " " lname)))
+
+(defun change-mark-csv (csv mark)
+  (let* ((pref1 (subseq csv 0 (position #\, csv :from-end 0)))
+	 (pref2 (subseq pref1 0 (position #\, pref1 :from-end 0))))
+    (concatenate 'string pref2 "," (write-to-string mark) ",#")))
+
+(defun get-insert-exam-grade (log-file-stream stream csv ht f)
+  "This version uses the student id # as hash key"
+  (let* ((std-id (parse-integer (get-std-id csv) :junk-allowed t))
+	 (v (gethash std-id ht)))
+    (if v
+        (let ((new-mark (change-mark-csv csv (funcall f v)))
+              (std-name (concatenate 'string (submission-std-fname v) " " (submission-std-lname v))))
+          (format log-file-stream "Mark of student ~a (~a) changed from ~a to ==> ~a~%" std-name std-id csv new-mark)
+          (format stream "~A~%"  new-mark)
+          (funcall f v))
+	(progn 
+          (format log-file-stream "Student ~a did not submit solution!~%" std-id)
+          nil))))
+
+(defun get-insert-grade (log-file-stream stream csv ht f)
+  (let* ((std-name (get-std-name csv))
+	 (v (gethash std-name ht)))
+    (if v
+        (let ((new-mark (change-mark-csv csv (funcall f v))))
+          (format log-file-stream "Mark of student ~a changed from ~a to ==> ~a~%" std-name csv new-mark)
+          (format stream "~A~%"  new-mark))
+	(progn 
+          (format log-file-stream "~S did not submit solution!~%" std-name)
+          (format *standard-output* "~A~%" std-name)))))
+
+(defun generate-exam-marks-spreadsheet-and-stats (log-file-stream d2l-file folder ht f out-file)
+  (when d2l-file
+    (with-open-file (in d2l-file :direction :input)
+      (with-open-file (out (merge-pathnames folder out-file)
+			   :direction :output :if-exists :supersede)
+        (format out "~A~%" (read-line in nil))
+        ;(format *standard-output* "Students that did not write a solution are listed below:~%")
+        (let ((count 0)
+              (sum 0)
+              max-val min-val (values (list)) value)
+          (loop for line = (read-line in nil)
+	        while line do
+                  (progn
+                    (setf value (get-insert-exam-grade log-file-stream out line ht f))
+                    (when value
+                      (incf count)
+	              (push value values)
+                      (incf sum value)
+                      (if (or (null max-val) (> value max-val)) (setf max-val value))
+                      (if (or (null min-val) (< value min-val)) (setf min-val value))
+                      (setf value nil))))
+          (let* ((mean (/ sum count))
+                 (sum-sq-diff (reduce #'+ (mapcar (lambda (x) (expt (- x mean) 2)) 
+                                           values)))
+                 (std-dev (sqrt (/ sum-sq-diff count))))
+            (format t "~%Stats: ~a~%" (list :count count :mean (float mean) :max max-val :min min-val :std-dev (float std-dev)))))))))
+
+(defun finalize-grading (broadcast-stream subs-folder exam-grades-export-file results-folder map log-file-stream)
+  "Performs final actions after all students are graded."
+  (format broadcast-stream "~%~%Done marking students solutions.~%")
+  (when exam-grades-export-file
+    (format broadcast-stream "Generating the grades spreadsheet...~%"))
+  (generate-exam-marks-spreadsheet-and-stats log-file-stream exam-grades-export-file results-folder map #'(lambda (x) (submission-total-marks x)) "grades.csv")
+  (when exam-grades-export-file
+    (format broadcast-stream "Done.~%"))
+  (uiop:delete-directory-tree subs-folder :validate t)
+  (format broadcast-stream "Exam grading complete!~%" )
+  (format *standard-output* "You may now upload to D2L the following grade files stored in your folder: ~a~%" results-folder)
+  (when exam-grades-export-file
+    (format *standard-output* "- grade.csv : contains the test marks~%"))
+  (format *standard-output* "- student-feedback/ : contains the feedback txt files for each student."))
+
 (defun grade-exam (submissions-zipped-file std-pc-map assessment-data-file results-folder &optional exam-grades-export-file)
   "Main function to grade an exam.
    submissions-zipped-file: Zipped file containing student solutions.
@@ -341,6 +476,7 @@
   (let* ((results-folder (create-results-folder results-folder))
          (assessment-data (read-assessment-metadata assessment-data-file))
          (questions-labels (reverse (second (assoc :questions assessment-data))))
+         (assessment-required-folder (uiop:ensure-directory-pathname (second (assoc :folder assessment-data))))
          (assessment-test-cases-data
            (process-assessment-test-case-data assessment-data-file questions-labels))
          (feedback-folder (merge-pathnames "student-feedback" results-folder))
@@ -354,13 +490,17 @@
                                      :direction :output
                                      :if-exists :append
                                      :if-does-not-exist :create)
-      (let ((broadcast-stream (make-broadcast-stream *standard-output* log-file-stream)))
+      (let ((broadcast-stream (make-broadcast-stream *standard-output* log-file-stream))
+            (feedback-stream (make-string-output-stream)))
         (format broadcast-stream "~a: Started marking~%" (get-date-time))
-        (process-student-submissions (directory (concatenate 'string (namestring subs-folder) "*/"))
-                                     map
-                                     assessment-questions
-                                     (cdr assessment-data)
-                                     feedback-folder
-                                     log-file-stream) ; Passed here
-        (finalize-grading broadcast-stream subs-folder exam-grades-export-file results-folder map log-file-stream) ; Added log-file-stream here
+        (process-all-students-submissions (directory (merge-pathnames "*" subs-folder))
+                                          map
+                                          questions-labels
+                                          assessment-required-folder
+                                          assessment-test-cases-data
+                                          feedback-folder
+                                          feedback-stream
+                                          log-file-stream)
+        ;; Need to double check the above
+        (finalize-grading broadcast-stream subs-folder exam-grades-export-file results-folder map log-file-stream)
         "(^_^)"))))
