@@ -257,7 +257,7 @@
                                        :key (lambda (x) (intern (string-upcase (pathname-name x)) :keyword))))))
         (orchestrate-grading-of-one-solution student-file (assoc ql assessment-test-cases-data) :hidden stream)))))
 
-(defun compile-and-load-all-tests (questions-labels assessment-test-cases-data)
+(defun compile-and-load-all-hidden-tests (questions-labels assessment-test-cases-data)
   (dolist (q-label questions-labels)
     (let* ((q-testcase-data (assoc q-label assessment-test-cases-data))
            (testcases-metadata (getf (rest q-testcase-data) :hidden))
@@ -271,7 +271,7 @@
          (questions-labels (reverse (second (assoc :questions assessment-data))))
          (assessment-test-cases-data
            (process-assessment-test-case-data assessment-data-file questions-labels)))
-    (compile-and-load-all-tests questions-labels assessment-test-cases-data)
+    (compile-and-load-all-hidden-tests questions-labels assessment-test-cases-data)
     (with-output-to-string (str)
       (dolist (student-folder students-folders)
         (orchestrate-grading-of-a-student-solutions student-folder questions-labels assessment-test-cases-data str)))))
@@ -318,7 +318,17 @@
               (get-insert-std line htable)))
     htable))
 
-#|
+(defun cleanup-folder (folder)
+  (if  (probe-file folder)
+       (sb-ext:delete-directory folder :recursive t)))
+
+
+(defun prepare-submission-folder (subs-folder submissions-zipped-file feedback-folder)
+  "Cleans up folders and unzips submissions."
+  (uiop:delete-directory-tree feedback-folder :validate t)
+  (uiop:delete-directory-tree subs-folder :validate t)
+  (uiop:run-program (list "unzip" (namestring submissions-zipped-file) "-d" (namestring subs-folder))))
+
 (defun grade-exam (submissions-zipped-file std-pc-map assessment-data-file results-folder &optional exam-grades-export-file)
   "Main function to grade an exam.
    submissions-zipped-file: Zipped file containing student solutions.
@@ -336,9 +346,10 @@
          (feedback-folder (merge-pathnames "student-feedback" results-folder))
          (subs-folder (merge-pathnames "submissions" results-folder))
          (map (create-mapping-table std-pc-map)))
+    (prepare-submission-folder subs-folder submissions-zipped-file feedback-folder)
+    ;; Loads all hidden test cases
+    (compile-and-load-all-hidden-tests questions-labels assessment-test-cases-data)
     ;; Completed all the above functions. Need to test and properly doc them
-    (prepare-submission-environment subs-folder submissions-zipped-file feedback-folder)
-    (load-questions-testcases (cdr assessment-data) assessment-questions "hidden")
     (with-open-file (log-file-stream (ensure-directories-exist (merge-pathnames "codegrader-history/log.txt" (user-homedir-pathname)))
                                      :direction :output
                                      :if-exists :append
@@ -353,4 +364,3 @@
                                      log-file-stream) ; Passed here
         (finalize-grading broadcast-stream subs-folder exam-grades-export-file results-folder map log-file-stream) ; Added log-file-stream here
         "(^_^)"))))
-|#
