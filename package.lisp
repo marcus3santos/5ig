@@ -49,5 +49,5 @@
         #:grader
         #:similarity
         #:tester)
-  (:export #:gen-exam-files #:chk-my-solution))
+  (:export #:gen-exam-files #:chk-my-solution #:grade-exam))
 

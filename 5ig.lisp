@@ -7,6 +7,18 @@
 (defparameter *assessment-data-folder* (merge-pathnames (make-pathname :directory '(:relative "quicklisp" "local-projects" "5ig" "Assessment-data"))
                                                         (user-homedir-pathname)))
 
+;; The student submission object
+
+(defstruct submission
+  std-id
+  std-fname
+  std-lname
+  room-pc
+  std-name
+  date
+  evaluation          ; percentage marks per question and explanations
+  total-marks) ; total marks, i.e., (sum correctness marks per question)/(Number of questions)
+
 (defun q-label-p (label)
   (let ((str (symbol-name label)))
     (and (not (string= str "QUESTIONS"))
@@ -277,20 +289,21 @@
   (let* ((std-sub-folder (path-relative-to-home assessment-required-folder))
          (std-assessment-path (merge-pathnames std-sub-folder student-folder))
          (student-files (directory (merge-pathnames "*.*" std-assessment-path)))
-         (solution-evaluations (grade-solutions student-files questions-labels assessment-test-cases-data feedback-stream))
+         (solutions-evaluations (grade-solutions student-files questions-labels assessment-test-cases-data feedback-stream))
          (evaluation  (list (/ (reduce #'+ (mapcar (lambda (e) (getf e :score))
                                                    solutions-evaluations))
                                (length questions-labels))
-                            solution-evaluations))
+                            solutions-evaluations))
          (evaluation-record (make-submission :std-id (first student)
                                              :std-fname (second student)
                                              :std-lname (third student)
                                              :room-pc (fourth student)
                                              :evaluation evaluation
                                              :total-marks (first evaluation)))
-         (anony-id-file-name (format nil "~a.txt" (hash-std-id (submission-std-id item)))))
-    (format log-file-stream "~%~a, ~a, ~a, ~s" (submission-std-room-pc item) student-folder anony-id-file-name evaluation)
-    (setf (gethash (submission-std-id item) map) item)
+         (anony-id-file-name (format nil "~a.txt" (hash-std-id (submission-std-id evaluation-record)))))
+    (format t "~%@@ ~s ~s ~s " assessment-required-folder std-sub-folder std-assessment-path)
+    (format log-file-stream "~%~a, ~a, ~a, ~s" (submission-room-pc evaluation-record) student-folder anony-id-file-name evaluation)
+    (setf (gethash (submission-std-id evaluation-record) map) evaluation-record)
     (generate-feedback-file anony-id-file-name (get-output-stream-string feedback-stream) feedback-folder)))
 
 (defun compile-and-load-all-hidden-tests (questions-labels assessment-test-cases-data)
@@ -355,16 +368,18 @@
               (get-insert-std line htable)))
     htable))
 
-(defun cleanup-folder (folder)
+(defun delete-folder (folder)
   (if  (probe-file folder)
        (sb-ext:delete-directory folder :recursive t)))
 
 
 (defun prepare-submission-folder (subs-folder submissions-zipped-file feedback-folder)
   "Cleans up folders and unzips submissions."
-  (uiop:delete-directory-tree feedback-folder :validate t)
-  (uiop:delete-directory-tree subs-folder :validate t)
-  (uiop:run-program (list "unzip" (namestring submissions-zipped-file) "-d" (namestring subs-folder))))
+  (delete-folder feedback-folder)
+  (delete-folder subs-folder)
+  (uiop:run-program (concatenate 'string "unzip " (namestring submissions-zipped-file) " -d " (namestring subs-folder)))
+  ;;(uiop:run-program (list "unzip" (namestring submissions-zipped-file) "-d" (namestring subs-folder)))
+  )
 
 
 (defun process-all-students-submissions (students-folders map questions-labels
@@ -376,11 +391,9 @@
            (temp (subseq str (1+ (position #\/ (subseq str 0 (1- (length str))) :from-end t))))
            (room-pc (intern (string-upcase (subseq temp 0 (1- (length temp)))) :keyword))
            (student (gethash room-pc map)))
-      (if std
-          (progn
-            (orchestrate-grading-of-a-student-solutions student-folder student questions-labels assessment-required-folder assessment-test-cases-data feedback-folder map feedkac-string log-file-stream)
-            (format t "~%~a~VT~C -- Graded" (cdr student) 40 #\tab))
-          (error "Computer ID (~a) not found in given mapping file!!!" room-pc)))))
+      (when student
+        (orchestrate-grading-of-a-student-solutions student-folder student questions-labels assessment-required-folder assessment-test-cases-data feedback-folder map feedback-stream log-file-stream)
+        (format t "~%~a~VT~C -- Graded" (cdr student) 40 #\tab)))))
 
 (defun get-std-id (csv)
   (subseq csv 1 (position #\, csv)))
@@ -457,7 +470,7 @@
   (generate-exam-marks-spreadsheet-and-stats log-file-stream exam-grades-export-file results-folder map #'(lambda (x) (submission-total-marks x)) "grades.csv")
   (when exam-grades-export-file
     (format broadcast-stream "Done.~%"))
-  (uiop:delete-directory-tree subs-folder :validate t)
+  (delete-folder subs-folder)
   (format broadcast-stream "Exam grading complete!~%" )
   (format *standard-output* "You may now upload to D2L the following grade files stored in your folder: ~a~%" results-folder)
   (when exam-grades-export-file
@@ -479,8 +492,8 @@
          (assessment-required-folder (uiop:ensure-directory-pathname (second (assoc :folder assessment-data))))
          (assessment-test-cases-data
            (process-assessment-test-case-data assessment-data-file questions-labels))
-         (feedback-folder (merge-pathnames "student-feedback" results-folder))
-         (subs-folder (merge-pathnames "submissions" results-folder))
+         (feedback-folder (merge-pathnames "student-feedback/" results-folder))
+         (subs-folder (merge-pathnames "submissions/" results-folder))
          (map (create-mapping-table std-pc-map)))
     (prepare-submission-folder subs-folder submissions-zipped-file feedback-folder)
     ;; Loads all hidden test cases
@@ -488,11 +501,10 @@
     ;; Completed all the above functions. Need to test and properly doc them
     (with-open-file (log-file-stream (ensure-directories-exist (merge-pathnames "codegrader-history/log.txt" (user-homedir-pathname)))
                                      :direction :output
-                                     :if-exists :append
+                                     :if-exists :supersede
                                      :if-does-not-exist :create)
       (let ((broadcast-stream (make-broadcast-stream *standard-output* log-file-stream))
             (feedback-stream (make-string-output-stream)))
-        (format broadcast-stream "~a: Started marking~%" (get-date-time))
         (process-all-students-submissions (directory (merge-pathnames "*" subs-folder))
                                           map
                                           questions-labels
