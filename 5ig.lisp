@@ -462,7 +462,8 @@
   (format *standard-output* "You may now upload to D2L the following grade files stored in your folder: ~a~%" results-folder)
   (when exam-grades-export-file
     (format *standard-output* "- grade.csv : contains the test marks~%"))
-  (format *standard-output* "- student-feedback/ : contains the feedback txt files for each student."))
+  (format *standard-output* "- student-feedback/ : contains the feedback txt files for each student.")
+  "(^_^)")
 
 (defun grade-exam (submissions-zipped-file std-pc-map assessment-data-file results-folder &optional exam-grades-export-file)
   "Main function to grade an exam.
@@ -501,5 +502,4 @@
                                           feedback-stream
                                           log-file-stream)
         ;; Need to double check the above
-        (finalize-grading broadcast-stream subs-folder exam-grades-export-file results-folder map log-file-stream)
-        "(^_^)"))))
+        (finalize-grading broadcast-stream subs-folder exam-grades-export-file results-folder map log-file-stream)))))
