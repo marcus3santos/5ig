@@ -16,7 +16,7 @@
   room-pc
   std-name
   date
-  evaluation          ; percentage marks per question and explanations
+  evaluation   ; percentage marks per question and explanations
   total-marks) ; total marks, i.e., (sum correctness marks per question)/(Number of questions)
 
 (defun q-label-p (label)
@@ -300,11 +300,11 @@
                                              :room-pc (fourth student)
                                              :evaluation evaluation
                                              :total-marks (first evaluation)))
+         (feedback-string (format nil "Exam Score: ~,2F~%~a" (first evaluation) (get-output-stream-string feedback-stream)))
          (anony-id-file-name (format nil "~a.txt" (hash-std-id (submission-std-id evaluation-record)))))
-    (format t "~%@@ ~s ~s ~s " assessment-required-folder std-sub-folder std-assessment-path)
     (format log-file-stream "~%~a, ~a, ~a, ~s" (submission-room-pc evaluation-record) student-folder anony-id-file-name evaluation)
     (setf (gethash (submission-std-id evaluation-record) map) evaluation-record)
-    (generate-feedback-file anony-id-file-name (get-output-stream-string feedback-stream) feedback-folder)))
+    (generate-feedback-file anony-id-file-name feedback-string feedback-folder)))
 
 (defun compile-and-load-all-hidden-tests (questions-labels assessment-test-cases-data)
   (dolist (q-label questions-labels)
@@ -312,20 +312,7 @@
            (testcases-metadata (getf (rest q-testcase-data) :hidden))
            (test-name (second (third testcases-metadata))))
       (compile-test-cases test-name testcases-metadata))))
-#|
-(defun orchestrate-grading-of-all-students (students-folders assessment-data-file)
-  (let* ((assessment-data (with-package *tester-package*
-                            (with-open-file (in assessment-data-file)
-                              (read in))))
-         (assessment-required-folder (uiop:ensure-directory-pathname (second (assoc :folder assessment-data))))
-         (questions-labels (reverse (second (assoc :questions assessment-data))))
-         (assessment-test-cases-data
-           (process-assessment-test-case-data assessment-data-file questions-labels)))
-    (compile-and-load-all-hidden-tests questions-labels assessment-test-cases-data)
-    (with-output-to-string (str)
-      (dolist (student-folder students-folders)
-        (orchestrate-grading-of-a-student-solutions student-folder questions-labels assessment-required-folder assessment-test-cases-data str)))))
-|#
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (defun check-input-files (lf)
@@ -393,7 +380,7 @@
            (student (gethash room-pc map)))
       (when student
         (orchestrate-grading-of-a-student-solutions student-folder student questions-labels assessment-required-folder assessment-test-cases-data feedback-folder map feedback-stream log-file-stream)
-        (format t "~%~a~VT~C -- Graded" (cdr student) 40 #\tab)))))
+        (format t "~%~a~VT~C -- Graded" room-pc 10 #\tab)))))
 
 (defun get-std-id (csv)
   (subseq csv 1 (position #\, csv)))
@@ -489,7 +476,7 @@
   (let* ((results-folder (create-results-folder results-folder))
          (assessment-data (read-assessment-metadata assessment-data-file))
          (questions-labels (reverse (second (assoc :questions assessment-data))))
-         (assessment-required-folder (uiop:ensure-directory-pathname (second (assoc :folder assessment-data))))
+         (assessment-required-folder (second (assoc :folder assessment-data)))
          (assessment-test-cases-data
            (process-assessment-test-case-data assessment-data-file questions-labels))
          (feedback-folder (merge-pathnames "student-feedback/" results-folder))
