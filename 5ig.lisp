@@ -198,7 +198,8 @@
          (solutions      (getf tc-data :solutions))
          ;; 1. Execute Functional Testing
          (summary (with-package *tester-package*
-                   (grade-student student-file question-label fname testcase-type)))
+		    (format t " ~a: " question-label)
+                    (grade-student student-file question-label fname testcase-type)))
          (score-history (list :functional-score (getf summary :score))))
     (if student-file
         ;; 2. Static Analysis & Violation Checking
@@ -275,7 +276,9 @@
       (let ((student-file (car (member ql student-files :key (lambda (x)
                                                                (intern (string-upcase (pathname-name x)) :keyword))))))
         (push (orchestrate-grading-of-one-solution student-file (assoc ql assessment-test-cases-data) :hidden feedback-stream)
-              results)))))
+              results)))
+    (when student-files
+      (format t " - Graded."))))
 
 (defun generate-feedback-file (file-name feedback-string feedback-folder)
   (let* ((folder (ensure-directories-exist (merge-pathnames file-name feedback-folder))))
@@ -379,8 +382,8 @@
            (room-pc (intern (string-upcase (subseq temp 0 (1- (length temp)))) :keyword))
            (student (gethash room-pc map)))
       (when student
-        (orchestrate-grading-of-a-student-solutions student-folder student questions-labels assessment-required-folder assessment-test-cases-data feedback-folder map feedback-stream log-file-stream)
-        (format t "~%~a~VT~C -- Graded" room-pc 10 #\tab)))))
+	(format t "~%Grading ~a " room-pc)
+        (orchestrate-grading-of-a-student-solutions student-folder student questions-labels assessment-required-folder assessment-test-cases-data feedback-folder map feedback-stream log-file-stream)))))
 
 (defun get-std-id (csv)
   (subseq csv 1 (position #\, csv)))
@@ -479,7 +482,11 @@
          (questions-labels (reverse (second (assoc :questions assessment-data))))
          (assessment-required-folder (second (assoc :folder assessment-data)))
          (assessment-test-cases-data
-           (process-assessment-test-case-data assessment-data-file questions-labels))
+	   (let ((temp (process-assessment-test-case-data assessment-data-file questions-labels)))
+	     (if (getf (rest (assoc :q1 temp)) :hidden)
+		 temp
+		 (error "You forgot to generate the hidden test cases for this assessment!~
+                         ~%Run GEN-EXAM-FILES again with :INCLUDE-HIDDEN T"))))
          (feedback-folder (merge-pathnames "student-feedback/" results-folder))
          (subs-folder (merge-pathnames "submissions/" results-folder))
          (map (create-mapping-table std-pc-map)))

@@ -10,6 +10,7 @@
   :depends-on (:lisp-critic)
   :components ((:file "package")
                (:file "utils")
+	       (:file "gensymify")
                (:file "similarity-scorer")
                (:file "sxm")
                (:file "testing")

@@ -42,14 +42,14 @@
   (if student-file
       (let ((runner-name (intern (format nil "~A-~A-~A-TEST" q-label fname kind) *tester-package*)))    
         ;; Execute the pre-compiled runner
-        (format t "~%Grading ~a " student-file)
         (let* ((raw-results (funcall runner-name student-file))
                (summary (summarize-results q-label raw-results)))
           summary))
-      (list :q-label q-label
-                    :score 0
-                    :status :missing-program-file
-                    :feedback (list (format nil "Program file not found for question ~a !!!" q-label)))))
+      (progn (format t "no file")
+	     (list :q-label q-label
+		   :score 0
+		   :status :missing-program-file
+		   :feedback (list (format nil "Program file not found for question ~a !!!" q-label))))))
 
 (defun calc-final-mark (score-history similarity professor-solution)
   "Calculates the final grade and generates a feedback report.
