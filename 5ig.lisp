@@ -278,7 +278,8 @@
         (push (orchestrate-grading-of-one-solution student-file (assoc ql assessment-test-cases-data) :hidden feedback-stream)
               results)))
     (when student-files
-      (format t " - Graded."))))
+      (format t " - Graded."))
+    results))
 
 (defun generate-feedback-file (file-name feedback-string feedback-folder)
   (let* ((folder (ensure-directories-exist (merge-pathnames file-name feedback-folder))))
@@ -291,7 +292,7 @@
                                                    feedback-stream log-file-stream)
   (let* ((std-sub-folder (path-relative-to-home assessment-required-folder))
          (std-assessment-path (merge-pathnames std-sub-folder student-folder))
-         (student-files (directory (merge-pathnames "*.*" std-assessment-path)))
+         (student-files (directory (merge-pathnames "*.lisp" std-assessment-path)))
          (solutions-evaluations (grade-solutions student-files questions-labels assessment-test-cases-data feedback-stream))
          (evaluation  (list (/ (reduce #'+ (mapcar (lambda (e) (getf e :score))
                                                    solutions-evaluations))
@@ -372,9 +373,10 @@
   )
 
 
+#|
 (defun process-all-students-submissions (students-folders map questions-labels
-                                    assessment-required-folder assessment-test-cases-data feedback-folder
-                                    feedback-stream log-file-stream)
+                                         assessment-required-folder assessment-test-cases-data feedback-folder
+                                         feedback-stream log-file-stream)
   "Iterates through student submission folders and grades each student's work."
   (dolist (student-folder students-folders)
     (let* ((str (namestring student-folder))
@@ -384,6 +386,47 @@
       (when student
 	(format t "~%Grading ~a " room-pc)
         (orchestrate-grading-of-a-student-solutions student-folder student questions-labels assessment-required-folder assessment-test-cases-data feedback-folder map feedback-stream log-file-stream)))))
+|#
+
+(defun print-waiting-time (total-students start-time)
+  (let* ((first-iteration-end (get-internal-real-time))
+                   (elapsed-units (- first-iteration-end start-time))
+                   (remaining-count (1- total-students))
+                   (estimated-remaining-units (* elapsed-units remaining-count))
+                   (remaining-seconds (/ estimated-remaining-units internal-time-units-per-second))
+                   (remaining-hours (/ (/ remaining-seconds 60.0) 60.0)))              
+              (format t "~%------------------------------------------------------------")
+              (format t "~%Grading one exam took: ~,2F seconds." 
+                      (/ elapsed-units internal-time-units-per-second))
+              (format t "~%Estimated time to grade the remaining ~D exams: ~,2F minutes (~,2F hours)."
+                      remaining-count
+                      (/ remaining-seconds 60.0)
+                      remaining-hours)
+              (if (> remaining-hours 1) (format t "~%Go grab a coffee or something."))
+              (format t "~%------------------------------------------------------------")))
+
+(defun process-all-students-submissions (students-folders map questions-labels
+                                         assessment-required-folder assessment-test-cases-data feedback-folder
+                                         feedback-stream log-file-stream)
+  "Iterates through student folders and estimates remaining time after the first completion."
+  (let* ((total-students (length students-folders))
+         (start-time (get-internal-real-time))
+         (iteration-count 0))
+    (dolist (student-folder students-folders)
+      (let* ((str (namestring student-folder))
+             (temp (subseq str (1+ (position #\/ (subseq str 0 (1- (length str))) :from-end t))))
+             (room-pc (intern (string-upcase (subseq temp 0 (1- (length temp)))) :keyword))
+             (student (gethash room-pc map)))        
+        (when student
+          (format t "~%Grading ~a..." room-pc)
+          (force-output t) ; Ensure the "Grading..." text appears immediately
+          (orchestrate-grading-of-a-student-solutions 
+           student-folder student questions-labels assessment-required-folder 
+           assessment-test-cases-data feedback-folder map feedback-stream log-file-stream)
+          (incf iteration-count)
+          ;; After the first iteration, calculate and print the estimate for the rest
+          (when (= iteration-count 1)
+            (print-waiting-time total-students start-time)))))))
 
 (defun get-std-id (csv)
   (subseq csv 1 (position #\, csv)))

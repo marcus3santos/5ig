@@ -8,9 +8,10 @@
 |#
 
 (defun multiply-records (a b)
-  ;;(format t "~a" a)
+  (multiply-records a b)
+  ;;(format t "~a" (aref a 0))
   ;;(* a (multiply-records a b))
-  (* a b)
+  ;;(* a b)
   )
 
 (defun dot-product-list (a b)

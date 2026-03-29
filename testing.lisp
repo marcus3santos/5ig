@@ -65,15 +65,22 @@
 (defun %build-payload (form student-path)
   "Generates the string of code to be passed to the subprocess."
   (format nil
-          "(progn 
-             (load ~S)
-             (let* ((expr (quote ~S))
-                    (op (first expr))
-                    (a1 (eval (second expr)))
-                    (a2 (eval (third expr)))
-                    (result (funcall op a1 a2)))
-               (format t \"~%(:OK :PASSED-P ~~S :GOT ~~S :EXPECTED ~~S)~%\" result a1 a2)
-               (finish-output)))"
+          "(handler-case
+               (progn 
+                 (load ~S)
+                 (let* ((expr (quote ~S))
+                        (op (first expr))
+                        (a1 (eval (second expr)))
+                        (a2 (eval (third expr)))
+                        (result (funcall op a1 a2)))
+                   (format t \"~%(:OK :PASSED-P ~~S :GOT ~~S :EXPECTED ~~S)~%\" result a1 a2)
+                   (finish-output)))
+             (storage-condition (e) 
+               (format *error-output* \"~%Caused an OVERFLOW.~% ~~A\" e)
+               (uiop:quit 101))
+             (error (e) 
+               (format *error-output* \"~%caused a RUNTIME-ERROR.~% ~~A\" e)
+               (uiop:quit 102)))"
           student-path form))
 
 (defun %run-os-process (lisp-code timeout)
@@ -87,23 +94,21 @@
                    :error-output :stream))
          (end-time (+ (get-universal-time) timeout)))
     (loop
-      (cond 
-        ;; CASE 1: Process finished OR CRASHED
-        ((not (uiop:process-alive-p process))
-         (let ((exit-code (uiop:wait-process process))
-               (output (uiop:slurp-stream-string (uiop:process-info-output process)))
-               (err-output (uiop:slurp-stream-string (uiop:process-info-error-output process))))
-           (if (zerop exit-code)
-               (return (values output nil 0))
-               ;; Return the error output so we can see the Stack/Heap message
-               (return (values nil (format nil "Subprocess Crashed (Code ~D): ~A" exit-code err-output) exit-code)))))
-        
-        ;; CASE 2: Process is looping forever
-        ((>= (get-universal-time) end-time)
-         (uiop:terminate-process process :urgent t)
-         (return (values nil "Error: Process timed out." 124)))
-        ;; Wait a bit before checking again
-        (t (sleep 0.1))))))
+      (let ((alive (uiop:process-alive-p process)))
+        (cond 
+          ;; CASE 1: Process finished OR CRASHED
+          ((not alive)
+           (let ((exit-code (uiop:wait-process process))
+                 (output (uiop:slurp-stream-string (uiop:process-info-output process)))
+                 (err-output (uiop:slurp-stream-string (uiop:process-info-error-output process))))
+             (return (values output err-output exit-code))))
+          
+          ;; CASE 2: Process is looping forever
+          ((>= (get-universal-time) end-time)
+           (uiop:terminate-process process :urgent t)
+           (return (values nil "Error: Process timed out." 124)))
+          ;; Wait a bit before checking again
+          (t (sleep 0.1)))))))
 
 ;; --- 4. MAIN ORCHESTRATOR ---
 (defun run-in-subprocess (form path timeout)
@@ -122,9 +127,10 @@
              (let ((payload (%build-payload form student-code-path)))
                (multiple-value-bind (stdout stderr exit-code)
                    (%run-os-process payload timeout)
-                 (let ((status (cond ((= exit-code 1)   :timeout)
+                 (let ((status (cond ((member exit-code '(124 137)) :timeout)
                                      ((= exit-code 0)   :ok)
                                      ((= exit-code 101) :overflow)
+                                     ((= exit-code 139) :overflow) ; hard segfault
                                      (t                 :error)))
                        (result (handler-case (safe-read stdout) (error () nil))))
                    (make-execution-result 
@@ -143,8 +149,8 @@
      :passed-p passed
      :expr form
      :reason (cond (passed "Passed")
-                   ((eq :timeout (execution-result-status result)) "Caused an Execution Timeout.")
-                   ((eq :overflow (execution-result-status result)) "Caused a Memory Overflow.")
+                   ((eq :timeout (execution-result-status result)) (format nil "~%caused an EXECUTION TIMEOUT.~%"))
+                   ((eq :overflow (execution-result-status result)) (format nil "~%caused a MEMORY OVERFLOW.~%"))
                    ((eq :error (execution-result-status result)) (execution-result-log result))
                    ((not passed)
                     (format nil "~%should evaluate to~%  ~S~%but evaluated to~%  ~S" expected (getf (execution-result-value result) :GOT))))
