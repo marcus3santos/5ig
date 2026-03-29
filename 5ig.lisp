@@ -133,7 +133,7 @@
   (format stream "~%Score: ~,2F, [0 to 100] (% of test cases passed)" (getf score-history :functional-score))
   (when (eq (getf summary :status) :ok)
     (mapc (lambda (f)
-            (format stream "~%The expression~%  ~s  ~a"
+            (format stream "~%- The expression~%   ~s ~a"
                     (getf f :expr)
                     (getf f :reason)))
           (getf summary :feedback)))
@@ -368,25 +368,9 @@
   "Cleans up folders and unzips submissions."
   (delete-folder feedback-folder)
   (delete-folder subs-folder)
-  (uiop:run-program (concatenate 'string "unzip " (namestring submissions-zipped-file) " -d " (namestring subs-folder)))
-  ;;(uiop:run-program (list "unzip" (namestring submissions-zipped-file) "-d" (namestring subs-folder)))
-  )
+  (uiop:run-program (concatenate 'string "unzip " (namestring submissions-zipped-file) " -d " (namestring subs-folder))))
 
 
-#|
-(defun process-all-students-submissions (students-folders map questions-labels
-                                         assessment-required-folder assessment-test-cases-data feedback-folder
-                                         feedback-stream log-file-stream)
-  "Iterates through student submission folders and grades each student's work."
-  (dolist (student-folder students-folders)
-    (let* ((str (namestring student-folder))
-           (temp (subseq str (1+ (position #\/ (subseq str 0 (1- (length str))) :from-end t))))
-           (room-pc (intern (string-upcase (subseq temp 0 (1- (length temp)))) :keyword))
-           (student (gethash room-pc map)))
-      (when student
-	(format t "~%Grading ~a " room-pc)
-        (orchestrate-grading-of-a-student-solutions student-folder student questions-labels assessment-required-folder assessment-test-cases-data feedback-folder map feedback-stream log-file-stream)))))
-|#
 
 (defun print-waiting-time (total-students start-time)
   (let* ((first-iteration-end (get-internal-real-time))
@@ -425,7 +409,7 @@
              (room-pc (intern (string-upcase (subseq temp 0 (1- (length temp)))) :keyword))
              (student (gethash room-pc map)))        
         (when student
-          (format t "~%Grading ~a..." room-pc)
+          (format t "~%Grading ~a " room-pc)
           (force-output t) ; Ensure the "Grading..." text appears immediately
           (orchestrate-grading-of-a-student-solutions 
            student-folder student questions-labels assessment-required-folder 
@@ -526,7 +510,7 @@
    submissions-zipped-file: Zipped file containing student solutions.
    std-pc-map: CSV file with student ID, name, and room-machine ID.
    assessment-data-file: Tooling file for the assessment.
-   results-folder: Folder where CodeGrader will save results.
+   results-folder: Folder where the grader will save results.
    exam-grades-export-file: Optional file to export exam grades."
   (check-input-files 
    (list submissions-zipped-file std-pc-map assessment-data-file (when exam-grades-export-file exam-grades-export-file)))
@@ -547,7 +531,7 @@
     ;; Loads all hidden test cases
     (compile-and-load-all-hidden-tests questions-labels assessment-test-cases-data)
     ;; Completed all the above functions. Need to test and properly doc them
-    (with-open-file (log-file-stream (ensure-directories-exist (merge-pathnames "codegrader-history/log.txt" (user-homedir-pathname)))
+    (with-open-file (log-file-stream (ensure-directories-exist (merge-pathnames "5ig-history/log.txt" (user-homedir-pathname)))
                                      :direction :output
                                      :if-exists :supersede
                                      :if-does-not-exist :create)

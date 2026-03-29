@@ -62,26 +62,53 @@
 (defparameter *stack-limit-mb* 4)   ; Small stack to catch recursion fast
 (defparameter *heap-limit-mb* 256)  ; Enough for small tasks, safe from "fork-bombs"
 
+
+(defun %build-payload (form student-path)
+  "Generates the string of code to be passed to the subprocess with continue support."
+  (format nil
+          "(handler-case
+               (progn 
+                 (load ~S)
+                 (let* ((expr (quote ~S))                       
+                        (op (first expr))
+                        ;; Use a restart to handle (continue) calls safely
+                        (a1 (with-simple-restart (continue \"Return NIL and continue grading.\")
+                              (eval (second expr))))
+                        (a2 (with-simple-restart (continue \"Return NIL and continue grading.\")
+                              (eval (third expr))))
+                        (result (funcall op a1 a2)))
+                   (format t \"~%(:OK :PASSED-P ~~S :GOT ~~S :EXPECTED ~~S)~%\" result a1 a2)
+                   (finish-output *terminal-io*)))
+             (storage-condition (e) 
+               (format *error-output* \"~%  caused an OVERFLOW: ~~A\" e)
+               (uiop:quit 101))
+             (error (e) 
+               (format *error-output* \"~%  caused a RUNTIME-ERROR: ~~A\" e)
+               (uiop:quit 102)))"
+          student-path form))
+#|
 (defun %build-payload (form student-path)
   "Generates the string of code to be passed to the subprocess."
   (format nil
           "(handler-case
                (progn 
                  (load ~S)
-                 (let* ((expr (quote ~S))
+                 (let* ((expr (quote ~S))                       
                         (op (first expr))
-                        (a1 (eval (second expr)))
+                        (a1 (progn (format t \"PASSED\")
+                                   (eval (second expr))))
                         (a2 (eval (third expr)))
                         (result (funcall op a1 a2)))
                    (format t \"~%(:OK :PASSED-P ~~S :GOT ~~S :EXPECTED ~~S)~%\" result a1 a2)
-                   (finish-output)))
+                   (finish-output *terminal-io*)))
              (storage-condition (e) 
-               (format *error-output* \"~%Caused an OVERFLOW.~% ~~A\" e)
+               (format *error-output* \"~%  caused an OVERFLOW: ~~A\" e)
                (uiop:quit 101))
              (error (e) 
-               (format *error-output* \"~%caused a RUNTIME-ERROR.~% ~~A\" e)
+               (format *error-output* \"~%  caused a RUNTIME-ERROR: ~~A\" e)
                (uiop:quit 102)))"
           student-path form))
+|#
 
 (defun %run-os-process (lisp-code timeout)
   (let* ((process (uiop:launch-program 
@@ -138,7 +165,8 @@
                     :value  (when (eq status :ok)
                               (if (eq (car result) :ok)
                                   (cdr result)
-                                  (format nil "STUDENT ERROR: ~A" (getf (cdr result) :got))))
+                                  (format nil "STUDENT ERROR: ~A" (getf (cdr result) :got)
+                                          )))
                     :log    (if (eq status :ok) stdout stderr)
                     :code   exit-code)))))))))
 
@@ -149,11 +177,11 @@
      :passed-p passed
      :expr form
      :reason (cond (passed "Passed")
-                   ((eq :timeout (execution-result-status result)) (format nil "~%caused an EXECUTION TIMEOUT.~%"))
-                   ((eq :overflow (execution-result-status result)) (format nil "~%caused a MEMORY OVERFLOW.~%"))
+                   ((eq :timeout (execution-result-status result)) (format nil "~%  caused an EXECUTION TIMEOUT.~%"))
+                   ((eq :overflow (execution-result-status result)) (format nil "~%  caused a MEMORY OVERFLOW.~%"))
                    ((eq :error (execution-result-status result)) (execution-result-log result))
                    ((not passed)
-                    (format nil "~%should evaluate to~%  ~S~%but evaluated to~%  ~S" expected (getf (execution-result-value result) :GOT))))
+                    (format nil "~%  should evaluate to~%   ~S~%  but evaluated to~%   ~S" expected (getf (execution-result-value result) :GOT))))
      :status (execution-result-status result))))
 
 (defmacro is (expr student-path)
