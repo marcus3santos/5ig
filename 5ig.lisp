@@ -405,13 +405,20 @@
               (if (> remaining-hours 1) (format t "~%Go grab a coffee or something."))
               (format t "~%------------------------------------------------------------")))
 
+(defun contains-lisp-files-p (path)
+  "Returns T if the directory at PATH contains any files with a .lisp extension."
+  (let ((wildcard (make-pathname :name :wild 
+                                 :type "lisp" 
+                                 :defaults path)))
+    (directory wildcard)))
+
 (defun process-all-students-submissions (students-folders map questions-labels
                                          assessment-required-folder assessment-test-cases-data feedback-folder
                                          feedback-stream log-file-stream)
   "Iterates through student folders and estimates remaining time after the first completion."
   (let* ((total-students (length students-folders))
          (start-time (get-internal-real-time))
-         (iteration-count 0))
+         found)
     (dolist (student-folder students-folders)
       (let* ((str (namestring student-folder))
              (temp (subseq str (1+ (position #\/ (subseq str 0 (1- (length str))) :from-end t))))
@@ -423,9 +430,12 @@
           (orchestrate-grading-of-a-student-solutions 
            student-folder student questions-labels assessment-required-folder 
            assessment-test-cases-data feedback-folder map feedback-stream log-file-stream)
-          (incf iteration-count)
           ;; After the first iteration, calculate and print the estimate for the rest
-          (when (= iteration-count 1)
+          (when (and (not found)
+                     (let* ((std-sub-folder (path-relative-to-home assessment-required-folder))
+                            (std-assessment-path (merge-pathnames std-sub-folder student-folder)))
+                       (contains-lisp-files-p std-assessment-path)))
+            (setf found t)
             (print-waiting-time total-students start-time)))))))
 
 (defun get-std-id (csv)
