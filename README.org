@@ -40,7 +40,7 @@ The following EBNF grammar defines the structure of an SXM document:
 <doc-node>          ::= (:doc (:title <string> :folder <string>) <node>*)
 
 ;; --- Shared Node Definition ---
-<node>              ::= <string> | <p-node> | <ul-node> | <ol-node> | <li-node> | 
+<node>              ::= <string-node> | <p-node> | <ul-node> | <ol-node> | <li-node> | 
                         <s-node> | <cb-node> | <wa-node> | <q-node>
 
 ;; --- Standard Content Nodes ---
@@ -50,7 +50,7 @@ The following EBNF grammar defines the structure of an SXM document:
 <li-node>           ::= (:li <node>*)
 <wa-node>           ::= (:wa <node>*)
 <s-node>            ::= (:s ([:level <integer>] [:title <string>]) <node>*)
-<cb-node>           ::= (:cb (:language <string>) <node>*)
+<cb-node>           ::= (:cb (:language <string>) <string>)
 
 ;; --- Question & Metadata Nodes ---
 <q-node>            ::= (:q <q-props> <q-element>*)
@@ -58,11 +58,12 @@ The following EBNF grammar defines the structure of an SXM document:
 <q-element>         ::= <node> | <tc-node> | <sols-node>
 
 <tc-node>           ::= (:tc (:function <symbol>) <tc-element>*)
-<tc-element>        ::= <string> | <p-node> | <cb-node> | <gvn-node> | <hdn-node>
+<tc-element>        ::= <string-node> | <p-node> | <cb-node> | <gvn-node> | <hdn-node>
 
+<string-node>       ::= <a-string-containing-text-in-orgmode-markup>
 <gvn-node>          ::= (:gvn <data-element>*)
 <hdn-node>          ::= (:hdn <data-element>*)
-<data-element>      ::= <string> | <p-node> | <a-node>
+<data-element>      ::= <string-node> | <p-node> | <a-node>
 <a-node>            ::= (:a <lisp-form> <lisp-form>)
 
 ;; --- Solutions ---
