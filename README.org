@@ -1,11 +1,5 @@
 #+TITLE: [[./Ancillary/logo-100.png]] is a grader
 
-5ig Is a Grader
-
-#+ATTR_LATEX: :width 3cm
-#+ATTR_ORG: :width 50
-[[./Ancillary/logo-100.png]] is a grader
-
 5ig is a grader for Common Lisp Programming assessments.
 
 * Why "5ig"?
