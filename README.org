@@ -2,7 +2,7 @@
 
 5ig is a grader for Common Lisp Programming assessments.
 
-* Background: Why "5ig"?
+* Why "5ig"?
 #+BEGIN_QUOTE
 Every project has a "pivot point." Originally, 5ig was built around the *FiveAM* regression testing framework—hence the *"5"* in the name. 
 
