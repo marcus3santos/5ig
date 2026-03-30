@@ -1,10 +1,8 @@
 #+TITLE: 5ig Is a Grader
 
-#+BEGIN_EXPORT html
-<p align="center">
-  <img src="Ancillary/5ig-logo.png" width="200" alt="5ig Logo">
-</p>
-#+END_EXPORT
+#+ATTR_LATEX: :width 3cm
+#+ATTR_ORG: :width 200
+[[./Ancillary/5ig-logo.png]]
 
 5ig is a grader for Common Lisp Programming assessments.
 
