@@ -196,9 +196,14 @@
          (tc-data        (rest metadata))
          (fname          (getf tc-data :asked-function))
          (solutions      (getf tc-data :solutions))
+         (hidden-tcs (getf tc-data :hidden))
+         (num-of-checks (destructuring-bind (progn declaim test) hidden-tcs
+                          (declare (ignore progn declaim))
+                          (length (cdddr test))))
          ;; 1. Execute Functional Testing
          (summary (with-package *tester-package*
 		    (format t " ~a: " question-label)
+                    (unless student-file (format t "~v,,,v<~>" num-of-checks #\x))
                     (grade-student student-file question-label fname testcase-type)))
          (score-history (list :functional-score (getf summary :score))))
     (if student-file
