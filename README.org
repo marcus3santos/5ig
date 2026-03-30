@@ -1,7 +1,7 @@
 #+TITLE: 5ig Is a Grader
 
 #+ATTR_LATEX: :width 3cm
-#+ATTR_ORG: :width 200
+#+ATTR_ORG: :width 50
 [[./Ancillary/5ig-logo.png]]
 
 5ig is a grader for Common Lisp Programming assessments.
