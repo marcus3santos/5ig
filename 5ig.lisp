@@ -468,7 +468,7 @@
           (format log-file-stream "~S did not submit solution!~%" std-name)
           (format *standard-output* "~A~%" std-name)))))
 
-(defun generate-exam-marks-spreadsheet-and-stats (log-file-stream d2l-file folder ht f out-file)
+(defun generate-exam-marks-spreadsheet-and-stats (log-file-stream d2l-file folder ht questions f out-file)
   (when d2l-file
     (with-open-file (in d2l-file :direction :input)
       (with-open-file (out (merge-pathnames folder out-file)
@@ -477,6 +477,7 @@
         ;(format *standard-output* "Students that did not write a solution are listed below:~%")
         (let ((count 0)
               (sum 0)
+	      (q-stats (mapcar (lambda (ql) (list ql 0)) questions))
               max-val min-val (values (list)) value)
           (loop for line = (read-line in nil)
 	        while line do
@@ -495,12 +496,12 @@
                  (std-dev (sqrt (/ sum-sq-diff count))))
             (format t "~%Stats: ~a~%" (list :count count :mean (float mean) :max max-val :min min-val :std-dev (float std-dev)))))))))
 
-(defun finalize-grading (broadcast-stream subs-folder exam-grades-export-file results-folder map log-file-stream)
+(defun finalize-grading (broadcast-stream subs-folder exam-grades-export-file results-folder map questions log-file-stream)
   "Performs final actions after all students are graded."
   (format broadcast-stream "~%~%Done marking students solutions.~%")
   (when exam-grades-export-file
     (format broadcast-stream "Generating the grades spreadsheet...~%"))
-  (generate-exam-marks-spreadsheet-and-stats log-file-stream exam-grades-export-file results-folder map #'(lambda (x) (submission-total-marks x)) "grades.csv")
+  (generate-exam-marks-spreadsheet-and-stats log-file-stream exam-grades-export-file results-folder map n-questions #'(lambda (x) (submission-total-marks x)) "grades.csv")
   (when exam-grades-export-file
     (format broadcast-stream "Done.~%"))
   (delete-folder subs-folder)
@@ -552,4 +553,4 @@
                                           feedback-stream
                                           log-file-stream)
         ;; Need to double check the above
-        (finalize-grading broadcast-stream subs-folder exam-grades-export-file results-folder map log-file-stream)))))
+        (finalize-grading broadcast-stream subs-folder exam-grades-export-file results-folder map questions-labels log-file-stream)))))
