@@ -1,4 +1,4 @@
-;;;; 5ig.lisp
+;; 5ig.lisp
 
 (in-package #:5ig)
 
@@ -449,13 +449,16 @@
 	 (v (gethash std-id ht)))
     (if v
         (let ((new-mark (change-mark-csv csv (funcall f v)))
-              (std-name (concatenate 'string (submission-std-fname v) " " (submission-std-lname v))))
+              (std-name (concatenate 'string (submission-std-fname v) " " (submission-std-lname v)))
+              (q-scores (mapcar (lambda (q)
+                                  (list (getf q :q-label) (getf q :score)))
+                                (second (submission-evaluation v)))))
           (format log-file-stream "Mark of student ~a (~a) changed from ~a to ==> ~a~%" std-name std-id csv new-mark)
           (format stream "~A~%"  new-mark)
-          (funcall f v))
+          (values (funcall f v) q-scores))
 	(progn 
           (format log-file-stream "Student ~a did not submit solution!~%" std-id)
-          nil))))
+          (values nil nil)))))
 
 (defun get-insert-grade (log-file-stream stream csv ht f)
   (let* ((std-name (get-std-name csv))
@@ -477,13 +480,14 @@
         ;(format *standard-output* "Students that did not write a solution are listed below:~%")
         (let ((count 0)
               (sum 0)
-	      (q-stats (mapcar (lambda (ql) (list ql 0)) questions))
-              max-val min-val (values (list)) value)
+	      (q-sums (mapcar (lambda (ql) (list ql 0)) questions))
+              max-val min-val (values (list)))
           (loop for line = (read-line in nil)
 	        while line do
-                  (progn
-                    (setf value (get-insert-exam-grade log-file-stream out line ht f))
+                  (multiple-value-bind (value q-scores) (get-insert-exam-grade log-file-stream out line ht f)
                     (when value
+                      (dolist (q-sum q-sums)
+                        (incf (second q-sum) (second (find (first q-sum) q-scores :key #'first))))
                       (incf count)
 	              (push value values)
                       (incf sum value)
@@ -494,16 +498,15 @@
                  (sum-sq-diff (reduce #'+ (mapcar (lambda (x) (expt (- x mean) 2)) 
                                            values)))
                  (std-dev (sqrt (/ sum-sq-diff count))))
-            (format t "~%Stats: ~a~%" (list :count count :mean (float mean) :max max-val :min min-val :std-dev (float std-dev)))))))))
+            (format t "~%Stats: ~a~%" (list :count count :mean (float mean) :max max-val :min min-val :std-dev (float std-dev)))
+            (format t "~%Average score for each question:~%~{ ~,2F~%~}~%" (dolist (s q-sums q-sums) (setf (second s) (/ (second s) count))))))))))
 
 (defun finalize-grading (broadcast-stream subs-folder exam-grades-export-file results-folder map questions log-file-stream)
   "Performs final actions after all students are graded."
   (format broadcast-stream "~%~%Done marking students solutions.~%")
   (when exam-grades-export-file
     (format broadcast-stream "Generating the grades spreadsheet...~%"))
-  (generate-exam-marks-spreadsheet-and-stats log-file-stream exam-grades-export-file results-folder map n-questions #'(lambda (x) (submission-total-marks x)) "grades.csv")
-  (when exam-grades-export-file
-    (format broadcast-stream "Done.~%"))
+  (generate-exam-marks-spreadsheet-and-stats log-file-stream exam-grades-export-file results-folder map questions #'(lambda (x) (submission-total-marks x)) "grades.csv")
   (delete-folder subs-folder)
   (format broadcast-stream "Exam grading complete!~%" )
   (format *standard-output* "You may now upload to D2L the following grade files stored in your folder: ~a~%" results-folder)
