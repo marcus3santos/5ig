@@ -386,15 +386,15 @@
                    (estimated-remaining-units (* elapsed-units remaining-count))
                    (remaining-seconds (/ estimated-remaining-units internal-time-units-per-second))
                    (remaining-hours (/ (/ remaining-seconds 60.0) 60.0)))              
-              (format t "~%------------------------------------------------------------")
-              (format t "~%Grading one exam took: ~,2F seconds." 
+              (format t "~%-------------------------------------------------------------------")
+              (format t "~%Grading of the above exam took: ~,2F seconds." 
                       (/ elapsed-units internal-time-units-per-second))
-              (format t "~%Estimated time to grade the remaining ~D exams: ~,2F minutes (~,2F hours)."
+              (format t "~%Grading the remaining ~D exams will take ~,2F minutes (~,2F hours)."
                       remaining-count
                       (/ remaining-seconds 60.0)
                       remaining-hours)
               (if (> remaining-hours 1) (format t "~%Go grab a coffee or something."))
-              (format t "~%------------------------------------------------------------")))
+              (format t "~%-------------------------------------------------------------------")))
 
 (defun contains-lisp-files-p (path)
   "Returns T if the directory at PATH contains any files with a .lisp extension."
