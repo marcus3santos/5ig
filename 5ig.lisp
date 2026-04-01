@@ -408,7 +408,7 @@
   (let* ((total-students (length students-folders))
          (start-time (get-internal-real-time))
          found)
-    (format t "~%Legend:~%- '.' means 'passed the test case check'~%- 'f' means 'failed the test case check'~%- 'x' means 'solution file missing'")
+    (format t "~%Legend:~%'.' means: passed the test case check~%'f' means: failed the test case check~%'x' means: missing solution file")
     (dolist (student-folder students-folders)
       (let* ((str (namestring student-folder))
              (temp (subseq str (1+ (position #\/ (subseq str 0 (1- (length str))) :from-end t))))
