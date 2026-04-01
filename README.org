@@ -1,4 +1,5 @@
 #+TITLE: [[./Ancillary/logo-50.png]] is a grader
+#+OPTIONS: toc:t
 
 5ig is a grader for Common Lisp Programming assessments.
 
