@@ -299,15 +299,17 @@
          (std-assessment-path (merge-pathnames std-sub-folder student-folder))
          (student-files (directory (merge-pathnames "*.lisp" std-assessment-path)))
          (solutions-evaluations (grade-solutions student-files questions-labels assessment-test-cases-data feedback-stream))
-         (evaluation  (list (/ (reduce #'+ (mapcar (lambda (e) (getf e :score))
-                                                   solutions-evaluations))
-                               (length questions-labels))
-                            solutions-evaluations))
+         (evaluation  (if student-files
+                          (list (/ (reduce #'+ (mapcar (lambda (e) (getf e :score))
+                                                       solutions-evaluations))
+                                   (length questions-labels))
+                                solutions-evaluations)
+                          (list 0)))
          (evaluation-record (make-submission :std-id (first student)
                                              :std-fname (second student)
                                              :std-lname (third student)
                                              :room-pc (fourth student)
-                                             :evaluation evaluation
+                                             :evaluation (when student-files evaluation)
                                              :total-marks (first evaluation)))
          (feedback-string (format nil "Exam Score: ~,2F~%~a" (first evaluation) (get-output-stream-string feedback-stream)))
          (anony-id-file-name (format nil "~a.txt" (hash-std-id (submission-std-id evaluation-record)))))
@@ -447,7 +449,7 @@
   "This version uses the student id # as hash key"
   (let* ((std-id (parse-integer (get-std-id csv) :junk-allowed t))
 	 (v (gethash std-id ht)))
-    (if v
+    (if (and v (submission-evaluation v))
         (let ((new-mark (change-mark-csv csv (funcall f v)))
               (std-name (concatenate 'string (submission-std-fname v) " " (submission-std-lname v)))
               (q-scores (mapcar (lambda (q)
@@ -498,8 +500,11 @@
                  (sum-sq-diff (reduce #'+ (mapcar (lambda (x) (expt (- x mean) 2)) 
                                            values)))
                  (std-dev (sqrt (/ sum-sq-diff count))))
-            (format t "~%Stats: ~a~%" (list :count count :mean (float mean) :max max-val :min min-val :std-dev (float std-dev)))
-            (format t "~%Average score for each question:~%~{ ~,2F~%~}~%" (dolist (s q-sums q-sums) (setf (second s) (/ (second s) count))))))))))
+            (format t "Stats: ~a~%" (list :count count :mean (float mean) :max max-val :min min-val :std-dev (float std-dev)))
+            (format t "Average score for each question:~%")
+            (mapc (lambda (x)
+                    (format t " (~a ~,2F)~%" (first x) (second x)))
+                  (dolist (s q-sums q-sums) (setf (second s) (/ (second s) count))))))))))
 
 (defun finalize-grading (broadcast-stream subs-folder exam-grades-export-file results-folder map questions log-file-stream)
   "Performs final actions after all students are graded."
