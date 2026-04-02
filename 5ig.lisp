@@ -219,7 +219,8 @@
             ;; score-similarity returns a plist: (:score :instructor-solution :student-solution) 
             (let* ((sim-results (calc-similarity-score fname program solutions)) 
                    (sim-score   (getf sim-results :score))
-                   (prof-sol    (getf sim-results :instructor-solution)))
+                   (prof-sol    (read-from-string (remove-substring (format nil "~a:" (package-name *tester-package*))
+								    (write-to-string (first (getf sim-results :instructor-solution)))))))
               
               ;; 5. Invoke refactored final-mark to get feedback and score
               (multiple-value-bind (feedback-string final-score)

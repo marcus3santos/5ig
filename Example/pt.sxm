@@ -21,11 +21,13 @@ In your implementation, you must write and use a helper function called MULTIPLY
             (:a (dot-product-list '(-1 -2) '(3 4)) '(-3 -8))
             (:a (dot-product-list '(100) '(100)) '(10000)))))
       (:sols
+       #|
        ;; Solution 1: Functional with Mapcar
        (:sol
         (defun multiply-records (a b) (* a b))
         (defun dot-product-list (l1 l2)
           (mapcar #'multiply-records l1 l2)))
+       |#
        ;; Solution 2: Recursive
        (:sol
         (defun multiply-records (a b) (* a b))
@@ -33,44 +35,48 @@ In your implementation, you must write and use a helper function called MULTIPLY
           (if (null l1) nil
               (cons (multiply-records (car l1) (car l2))
                     (dot-product-list (cdr l1) (cdr l2))))))
+       #|
        ;; Solution 3: Internal Labels
        (:sol
         (defun dot-product-list (l1 l2)
           (labels ((multiply-records (x y) (* x y)))
-            (loop for a in l1 for b in l2 collect (multiply-records a b)))))))
+            (loop for a in l1 for b in l2 collect (multiply-records a b)))))
+       |#
+       ))
+       
 
-     ;; Question 2: List transformation with forbidden structural functions
-     (:q (:penalty 75 
-         :forbidden (REVERSE NREVERSE APPEND CONCATENATE))
-        (:wa
-         (:p "Write a function SQUARE-EVENS that takes a list of integers and returns a new list containing the squares of only the even numbers in the original list, maintaining their relative order. 
+       ;; Question 2: List transformation with forbidden structural functions
+       (:q (:penalty 75 
+            :forbidden (REVERSE NREVERSE APPEND CONCATENATE))
+           (:wa
+            (:p "Write a function SQUARE-EVENS that takes a list of integers and returns a new list containing the squares of only the even numbers in the original list, maintaining their relative order. 
 
 *Constraint*: You are forbidden from using REVERSE or APPEND. You must build the list in the correct order using recursion or iterative collection.")
-         (:tc (:function square-evens)
-             (:gvn
-              (:a (square-evens '(1 2 3 4 5 6)) '(4 16 36))
-              (:a (square-evens '(1 3 5)) '())
-              (:a (square-evens ()) ()))
-             (:hdn
-              (:a (square-evens '(2 -4 0)) '(4 16 0))
-              (:a (square-evens '(10 11 12)) '(100 144)))))
-        (:sols
+            (:tc (:function square-evens)
+		 (:gvn
+		  (:a (square-evens '(1 2 3 4 5 6)) '(4 16 36))
+		  (:a (square-evens '(1 3 5)) '())
+		  (:a (square-evens ()) ()))
+		 (:hdn
+		  (:a (square-evens '(2 -4 0)) '(4 16 0))
+		  (:a (square-evens '(10 11 12)) '(100 144)))))
+           (:sols
          ;; Solution 1: Recursive (Natural order)
-         (:sol
-          (defun square-evens (lst)
-            (cond ((null lst) nil)
-                  ((evenp (car lst)) 
-                   (cons (* (car lst) (car lst)) (square-evens (cdr lst))))
-                  (t (square-evens (cdr lst))))))
-         ;; Solution 2: Loop Macro
-         (:sol
-          (defun square-evens (lst)
-            (loop for x in lst
-                  when (evenp x)
-                  collect (* x x))))
-         ;; Solution 3: Mapcan / Functional
-         (:sol
-          (defun square-evens (lst)
-            (mapcan (lambda (x) (if (evenp x) (list (* x x)) nil)) lst))))))
+            (:sol
+             (defun square-evens (lst)
+               (cond ((null lst) nil)
+                     ((evenp (car lst)) 
+                      (cons (* (car lst) (car lst)) (square-evens (cdr lst))))
+                     (t (square-evens (cdr lst))))))
+            ;; Solution 2: Loop Macro
+            (:sol
+             (defun square-evens (lst)
+               (loop for x in lst
+                     when (evenp x)
+                       collect (* x x))))
+            ;; Solution 3: Mapcan / Functional
+            (:sol
+             (defun square-evens (lst)
+               (mapcan (lambda (x) (if (evenp x) (list (* x x)) nil)) lst))))))
 
 
