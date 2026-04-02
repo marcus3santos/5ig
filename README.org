@@ -153,27 +153,41 @@ CL-USER> (5ig:chk-my-solution "~/quicklisp/local-projects/5ig/Example/pt/q1.lisp
 The output provides a comprehensive report, as shown below:
 
 #+begin_example
-Grading ~/quicklisp/local-projects/5ig/Example/pt/q1.lisp ..
 ### Question 1
 
---- Functional Correctness Analysis ---
+## Functional Correctness Analysis 
 
-Score: 100.00, [0 to 100] (% of test cases passed)
+Score: 50.00, [0 to 100] (% of test cases passed)
+- The expression
+   (DOT-PRODUCT-LIST '(1 2 3) '(4 5 6)) 
+  should evaluate to
+   (4 10 18)
+  but evaluated to
+   (4 4 4)
 
---- Forbidden Function Violation Analysis for Function DOT-PRODUCT-LIST ---
+## Forbidden Function Violation Analysis for Function DOT-PRODUCT-LIST 
 
 SUCCESS: No forbidden functions detected.
 
---- Style Feedback ---
+## Style Feedback
 
-Below is your 'pretty-printed' code. No idiomatic improvements suggested.
+Below is your 'pretty-printed' code. The suggestions below your code can 
+help you write more 'Lisp-y' solutions:
 
 **********************************************************************
 
-(DEFUN MULTIPLY-RECORDS (A B) (* A B))
-**********************************************************************
-
-(DEFUN DOT-PRODUCT-LIST (A B) (MAPCAR #'MULTIPLY-RECORDS A B))
+(DEFUN DOT-PRODUCT-LIST (A B)
+  (LET ((RES 'NIL))
+    (DOTIMES (I (LENGTH A))
+      (SETF RES (CONS (* (FIRST A) (FIRST B)) RES)))
+    RES))
+----------------------------------------------------------------------
+Don't quote NIL.  NIL is a constant and doesn't need quoting. [If you
+wrote '() to initialize a list, that's OK. It's impossible for the
+Lisp Critic to distinguish '() from 'NIL internally.]
+----------------------------------------------------------------------
+Instead of (SETF RES (CONS ...)), use PUSH.
+----------------------------------------------------------------------
 #+end_example
 
 ** Benefits of the Feedback Loop

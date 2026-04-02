@@ -1,5 +1,15 @@
 (in-package :utils)
 
+(defun remove-substring (substring string)
+  "Removes all occurrences of SUBSTRING from STRING."
+  (with-output-to-string (out)
+    (loop with len = (length substring)
+          for start = 0 then (+ pos len)
+          for pos = (search substring string :start2 start)
+          while pos
+          do (write-string string out :start start :end pos)
+          finally (write-string string out :start start))))
+
 (defparameter *salt* "A9f4XqZb!")
 
 (defun simple-hash (string)

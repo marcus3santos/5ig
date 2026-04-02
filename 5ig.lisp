@@ -129,12 +129,13 @@
   "Handles the final formatting of the grading results."
   ;; 1. Header
   (format stream "~%### Question ~A~%" (subseq (symbol-name label) 1))
-  (format stream "~%--- Functional Correctness Analysis ---~%")
+  (format stream "~%## Functional Correctness Analysis ~%")
   (format stream "~%Score: ~,2F, [0 to 100] (% of test cases passed)" (getf score-history :functional-score))
   (when (eq (getf summary :status) :ok)
     (mapc (lambda (f)
-            (format stream "~%- The expression~%   ~s ~a"
-                    (getf f :expr)
+            (format stream "~%- The expression~%   ~a ~a"
+                    (remove-substring (format nil "~a:" (package-name *tester-package*))
+                                      (write-to-string (getf f :expr)))
                     (getf f :reason)))
           (getf summary :feedback)))
   (when (eq (getf summary :status) :ok)
@@ -146,17 +147,14 @@
     ;; 3. Functional Scoring & Penalties
     (when (getf summary :penalty-applied)
       (format stream "~%!!! PENALTY APPLIED !!!~%Original Score: ~,2F, [0 to 100]~%Adjusted Score: ~,2F, [0 to 100] (-~D% Penalty)~%" 
-              (getf score-history :functional-score) (getf score-history :violation-score) (getf summary :penalty-applied))
-      ;;(format stream "~%Score: ~,2F, [0 to 100]~%" (getf score-history :functional-score))
-      )
+              (getf score-history :functional-score) (getf score-history :violation-score) (getf summary :penalty-applied)))
 
     ;; 4. Similarity & Style Feedback
     ;; Only render if it's a hidden test and feedback exists
     (let ((feedback (getf summary :similarity-feedback)))
       (when (and (eq testcase-type :hidden) feedback)
-        (format stream "~%--- Final Score, Style & Logic Similarity Analysis ---~%~%")
-        (format stream "~A~%" feedback)
-        (format stream "------------------------------------------~%"))))
+        (format stream "~%## Final Score & Logic Similarity Analysis~%~%")
+        (format stream "~A~%" feedback))))
 
   ;; 5. Error messages if any
   (unless (eq (getf summary :status) :ok)
@@ -167,7 +165,7 @@
   "Produces a human-readable string summarizing any forbidden function 
    violations."
   (let ((report-stream (make-string-output-stream)))
-    (format report-stream "~%--- Forbidden Function Violation Analysis for Function ~A ---~%" target-func)
+    (format report-stream "~%## Forbidden Function Violation Analysis for Function ~A ~%" target-func)
     
     ;; 2. Violation Reporting
     (if (null violations)
@@ -179,7 +177,7 @@
             (format report-stream "  [~A] calls -> ~{~A~^, ~}~%" 
                     (car node) (or (second node) '("no functions"))))
           
-          (format report-stream "~%--- Violation Check ---~%")
+          (format report-stream "~%# Violation Check~%")
     
           (format report-stream "~%FAILED: Forbidden functions found.~%")
           (dolist (v violations)
@@ -403,12 +401,11 @@
                                  :defaults path)))
     (directory wildcard)))
 
-(defun process-all-students-submissions (students-folders map questions-labels
+(defun process-all-students-submissions (total-students students-folders map questions-labels
                                          assessment-required-folder assessment-test-cases-data feedback-folder
                                          feedback-stream log-file-stream)
   "Iterates through student folders and estimates remaining time after the first completion."
-  (let* ((total-students (length students-folders))
-         (start-time (get-internal-real-time))
+  (let* ((start-time (get-internal-real-time))
          found)
     (format t "~%Legend:~%'.' means: passed the test case check~%'f' means: failed the test case check~%'x' means: missing solution file")
     (dolist (student-folder students-folders)
@@ -529,7 +526,8 @@
    exam-grades-export-file: Optional file to export exam grades."
   (check-input-files 
    (list submissions-zipped-file std-pc-map assessment-data-file (when exam-grades-export-file exam-grades-export-file)))
-  (let* ((results-folder (create-results-folder results-folder))
+  (let* ((total-students (length (uiop:read-file-lines std-pc-map)))
+         (results-folder (create-results-folder results-folder))
          (assessment-data (read-assessment-metadata assessment-data-file))
          (questions-labels (reverse (second (assoc :questions assessment-data))))
          (assessment-required-folder (second (assoc :folder assessment-data)))
@@ -552,7 +550,7 @@
                                      :if-does-not-exist :create)
       (let ((broadcast-stream (make-broadcast-stream *standard-output* log-file-stream))
             (feedback-stream (make-string-output-stream)))
-        (process-all-students-submissions (directory (merge-pathnames "*" subs-folder))
+        (process-all-students-submissions total-students (directory (merge-pathnames "*" subs-folder))
                                           map
                                           questions-labels
                                           assessment-required-folder

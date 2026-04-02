@@ -30,7 +30,7 @@
                   (lisp-critic:critique-file sol))))
     ;; We check if the output contains a hint (usually starts with a paren or keyword)
     ;; Adjust the search string based on what lisp-critic actually outputs
-    (format stream "~%--- Style Feedback ---~%~%Below is your 'pretty-printed' code. ")
+    (format stream "~%## Style Feedback~%~%Below is your 'pretty-printed' code. ")
     (if (search "----" output :test #'char-equal)
         (format stream "The suggestions below your code can ~%help you write more 'Lisp-y' solutions:~%~%~A~%" output)
         (format stream "No idiomatic improvements suggested.~%~%~A~%" output))))

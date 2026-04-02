@@ -10,7 +10,8 @@
            #:safe-read-student-code
            #:get-call-graph
            #:hash-std-id
-           #:my-feedback-file))
+           #:my-feedback-file
+           #:remove-substring))
 
 (defpackage #:tester
   (:use #:cl #:utils)
