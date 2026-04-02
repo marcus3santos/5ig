@@ -1,7 +1,7 @@
-#+TITLE: [[./Ancillary/logo-50.png]] is a grader
+#+TITLE: [[./Ancillary/logo-100.png]] 
 #+OPTIONS: toc:t
 
-5ig is a grader for Common Lisp Programming assessments.
+5ig Is a Grader for Common Lisp Programming assessments.
 
 * Why "5ig"?
 #+BEGIN_QUOTE
