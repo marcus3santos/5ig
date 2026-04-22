@@ -1,4 +1,4 @@
-;;;; ============================================================
+;;; ============================================================
 ;;;; Robust Tree Edit Distance for Lisp forms
 ;;;; Counts node insert/delete costs correctly and handles atoms
 ;;;; ============================================================
@@ -101,8 +101,7 @@ Returns T if A is considered less than B."
            ,(sort (mapcar #'sort-form (second f)) #'form<)
            ,@(sort-form (cddr f))))
         ((and (listp f)
-              (or (eq (car f) '*)
-                  (eq (car f) '+)))
+              (member (car f) '(* + = /= equal eq eql equalp = string= string/= string-equal char= char-equal tree-equal)))
          (cons (car f)
                (sort (mapcar #'sort-form (cdr f)) #'form<)))
         (t (cons (sort-form (car f)) (mapcar #'sort-form (cdr f))))))
