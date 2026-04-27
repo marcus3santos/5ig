@@ -5,11 +5,21 @@
 
 * Why "5ig"?
 #+BEGIN_QUOTE
-Every project has a "pivot point." Originally, 5ig was built around the *FiveAM* regression testing framework—hence the *"5"* in the name. 
+Every project has a "pivot point." Originally, 5ig was built around
+the *FiveAM* regression testing framework—hence the *"5"* in the name.
 
-However, we quickly discovered that while FiveAM is excellent for standard development, it struggled with the "chaos factors" of an autograder: infinite loops and memory overflows. When student code triggers a recursive explosion, the grader shouldn't go down with the ship.
+However, we quickly discovered that while FiveAM is excellent for
+standard development, it struggled with the "chaos factors" of an
+autograder: infinite loops and memory overflows. When student code
+triggers a recursive explosion, the grader shouldn't go down with the
+ship.
 
-I decided to move away from the FiveAM dependency and wrote a custom, macro-based DSL. This allowed for built-in timeouts and memory constraints while retaining a clean, FiveAM-style syntax. We kept the name *5ig* (pronounced like "/sig/") as a nod to its origins and a reminder that in Lisp, if a tool doesn't fit your needs, you build a macro to fix it.
+I decided to move away from the FiveAM dependency and wrote a custom,
+macro-based DSL. This allowed for built-in timeouts and memory
+constraints while retaining a clean, FiveAM-style syntax. We kept the
+name *5ig* (pronounced like "/sig/") as a nod to its origins and a
+reminder that in Lisp, if a tool doesn't fit your needs, you build a
+macro to fix it.
 #+END_QUOTE
 
 * The Workflow
