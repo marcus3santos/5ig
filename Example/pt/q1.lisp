@@ -1,8 +1,6 @@
 ;; q1.lisp
 
-
-(defun dot-product-list (a b)
-  (let ((res '()))
-    (dotimes (i (length a))
-      (setf res (cons (* (first a) (first b)) res)))
-    res))
+(DEFUN DOT-PRODUCT-LIST (G1 G2)
+  (LABELS ((G3 (G4 G5)
+             (* G4 G4)))
+    (MAPCAR #'G3 G1 G2)))
